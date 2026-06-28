@@ -15,6 +15,7 @@ import {
   Save,
   ReplaceAll,
   MoreHorizontal,
+  Pencil,
   Sparkles,
   Search,
   X,
@@ -58,6 +59,7 @@ import {
 } from "@/lib/app-helpers";
 
 const SUPPORTED_PASTE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif"]);
+const MOBILE_EDITOR_QUERY = "(max-width: 639px)";
 
 type NoteSearchMatch = {
   from: number;
@@ -260,7 +262,6 @@ export const EditorPane = ({
   const [, setEditorStateVersion] = useState(0);
   const [imageUploadState, setImageUploadState] = useState<"idle" | "compressing" | "uploading" | "error">("idle");
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [editorActionsOpen, setEditorActionsOpen] = useState(false);
   const [mobileNotebookSheetOpen, setMobileNotebookSheetOpen] = useState(false);
   const [notebookUpdatePending, setNotebookUpdatePending] = useState(false);
   const [noteSearchOpen, setNoteSearchOpen] = useState(false);
@@ -268,8 +269,13 @@ export const EditorPane = ({
   const [noteSearchReplaceOpen, setNoteSearchReplaceOpen] = useState(false);
   const [noteSearchReplacement, setNoteSearchReplacement] = useState("");
   const [noteSearchIndex, setNoteSearchIndex] = useState(0);
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window === "undefined" ? false : window.matchMedia(MOBILE_EDITOR_QUERY).matches
+  );
+  const [isMobileEditing, setIsMobileEditing] = useState(false);
   const notebookOptions = useMemo(() => getNotebookMoveOptions(notebooks), [notebooks]);
   const readOnly = isTrashView || Boolean(memo?.isDeleted);
+  const effectiveReadOnly = readOnly || (isMobileViewport && !isMobileEditing);
 
   const memoRef = useRef<MemoDetail | null>(memo);
   const editorRef = useRef<Editor | null>(null);
@@ -280,11 +286,25 @@ export const EditorPane = ({
   const editingMemoIdRef = useRef<string | null>(memo?.id ?? null);
   const imageCompressionEnabledRef = useRef(imageCompressionEnabled);
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(MOBILE_EDITOR_QUERY);
+    const updateMobileViewport = () => setIsMobileViewport(mediaQuery.matches);
+
+    updateMobileViewport();
+    mediaQuery.addEventListener("change", updateMobileViewport);
+
+    return () => mediaQuery.removeEventListener("change", updateMobileViewport);
+  }, []);
+
+  useEffect(() => {
+    setIsMobileEditing(false);
+  }, [memo?.id]);
+
   const insertImageFiles = useCallback((files: File[]) => {
     const currentMemo = memoRef.current;
     const currentEditor = editorRef.current;
 
-    if (!currentMemo || currentMemo.isDeleted || !currentEditor || files.length === 0) {
+    if (!currentMemo || currentMemo.isDeleted || !currentEditor || !currentEditor.isEditable || files.length === 0) {
       return;
     }
 
@@ -339,7 +359,7 @@ export const EditorPane = ({
       }),
     ],
     content: memo?.contentJson ?? { type: "doc", content: [{ type: "paragraph" }] },
-    editable: Boolean(memo && !memo.isDeleted && !isTrashView),
+    editable: Boolean(memo && !effectiveReadOnly),
     editorProps: {
       attributes: {
         class: "prose prose-slate max-w-none focus:outline-none min-h-[300px] px-4 py-3 sm:px-7",
@@ -464,7 +484,7 @@ export const EditorPane = ({
   }, [noteSearchMatches, noteSearchOpen, selectNoteSearchMatch]);
 
   const replaceAllNoteSearchMatches = useCallback(() => {
-    if (!editor || readOnly || noteSearchMatches.length === 0) {
+    if (!editor || effectiveReadOnly || noteSearchMatches.length === 0) {
       return;
     }
 
@@ -483,7 +503,7 @@ export const EditorPane = ({
 
     setNoteSearchIndex(0);
     window.requestAnimationFrame(() => noteSearchInputRef.current?.focus());
-  }, [editor, noteSearchMatches, noteSearchReplacement, readOnly]);
+  }, [editor, effectiveReadOnly, noteSearchMatches, noteSearchReplacement]);
 
   useEffect(() => {
     if (!editor) {
@@ -563,7 +583,6 @@ export const EditorPane = ({
 
     const sameMemo = editingMemoIdRef.current === memo.id;
     memoRef.current = memo;
-    currentEditor?.setEditable(!memo.isDeleted && !isTrashView);
 
     if (sameMemo && hasUnsavedChangesRef.current && !memo.isDeleted) {
       return;
@@ -610,6 +629,10 @@ export const EditorPane = ({
       cancelled = true;
     };
   }, [isTrashView, memo, editor]);
+
+  useEffect(() => {
+    editor?.setEditable(Boolean(memo && !effectiveReadOnly));
+  }, [editor, effectiveReadOnly, memo]);
 
   useEffect(() => {
     if (!editor || !memo) {
@@ -810,7 +833,7 @@ export const EditorPane = ({
     : "0/0";
 
   const updateMemoNotebook = (notebookId: string, sourceMemo: MemoDetail = memoRef.current ?? memo) => {
-    if (readOnly || notebookId === sourceMemo.notebookId || notebookUpdatePending) {
+    if (effectiveReadOnly || notebookId === sourceMemo.notebookId || notebookUpdatePending) {
       setMobileNotebookSheetOpen(false);
       return;
     }
@@ -847,7 +870,7 @@ export const EditorPane = ({
     });
   };
 
-  const handleMobileDone = () => {
+  const handleMobileBack = () => {
     if (readOnly || !editor || !hasUnsavedChanges) {
       onBackToList();
       return;
@@ -864,8 +887,25 @@ export const EditorPane = ({
     });
   };
 
+  const handleMobileDone = () => {
+    if (readOnly || !editor || !hasUnsavedChanges) {
+      setIsMobileEditing(false);
+      return;
+    }
+
+    saveMutation.mutate(undefined, {
+      onSuccess: () => setIsMobileEditing(false),
+      onError: (error) => {
+        const sourceError = error instanceof MemoSaveRequestError ? error.originalError : error;
+        if (error instanceof MemoSaveRequestError && shouldQueueMemoSaveError(sourceError)) {
+          setIsMobileEditing(false);
+        }
+      },
+    });
+  };
+
   return (
-    <div className="flex h-full min-w-0 flex-col bg-white">
+    <div className="relative flex h-full min-w-0 flex-col bg-white">
       <header className="shrink-0 border-b border-slate-200 bg-white">
         <div className="flex min-h-12 items-center justify-between gap-2 border-b border-slate-100 px-3 py-2 sm:px-5">
           <div className="flex min-w-0 items-center gap-2 text-sm">
@@ -876,7 +916,7 @@ export const EditorPane = ({
               title={hasUnsavedChanges && !readOnly ? "保存并返回列表" : "返回列表"}
               aria-label={hasUnsavedChanges && !readOnly ? "保存并返回列表" : "返回列表"}
               disabled={mobileDoneDisabled}
-              onClick={handleMobileDone}
+              onClick={handleMobileBack}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -938,14 +978,16 @@ export const EditorPane = ({
             <span className={cn("inline-flex max-w-[5.5rem] truncate rounded-full px-2 py-1 text-[11px] font-medium sm:hidden", mobileStatusClassName)}>
               {mobileStatusLabel}
             </span>
-            <button
-              className="inline-flex h-8 items-center justify-center rounded-full bg-slate-950 px-3 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-500 sm:hidden"
-              type="button"
-              disabled={mobileDoneDisabled}
-              onClick={handleMobileDone}
-            >
-              {saveMutation.isPending ? "保存中" : "完成"}
-            </button>
+            {isMobileEditing && !readOnly && (
+              <button
+                className="inline-flex h-8 items-center justify-center rounded-full bg-slate-950 px-3 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-500 sm:hidden"
+                type="button"
+                disabled={mobileDoneDisabled}
+                onClick={handleMobileDone}
+              >
+                {saveMutation.isPending ? "保存中" : "完成"}
+              </button>
+            )}
             <Button className="hidden sm:inline-flex" size="icon" variant="ghost" title="搜索当前笔记" aria-label="搜索当前笔记" onClick={() => openNoteSearch()}>
               <Search className="h-4 w-4" />
             </Button>
@@ -969,6 +1011,7 @@ export const EditorPane = ({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
+                  className={cn(!isMobileEditing && !readOnly && "hidden sm:inline-flex")}
                   size="icon"
                   variant="ghost"
                   title="更多"
@@ -1039,7 +1082,7 @@ export const EditorPane = ({
         <div className="space-y-3 px-4 pb-4 pt-4 sm:px-7">
           <input
             value={title}
-            readOnly={readOnly}
+            readOnly={effectiveReadOnly}
             onChange={(event) => {
               setTitle(event.target.value);
               persistCurrentDraft(event.target.value, tagsText);
@@ -1052,7 +1095,7 @@ export const EditorPane = ({
             <button
               className="flex h-8 min-w-0 max-w-full items-center gap-1 rounded-md border border-transparent bg-transparent px-2 text-sm font-medium text-slate-600 outline-none transition hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900 focus-visible:border-emerald-300 focus-visible:ring-2 focus-visible:ring-emerald-500/20 disabled:opacity-50 sm:hidden"
               type="button"
-              disabled={readOnly || notebookUpdatePending}
+              disabled={effectiveReadOnly || notebookUpdatePending}
               title="所在笔记本"
               aria-label={`所在笔记本：${currentNotebookLabel}`}
               onClick={() => setMobileNotebookSheetOpen(true)}
@@ -1063,7 +1106,7 @@ export const EditorPane = ({
             <div className="hidden min-w-[9rem] max-w-[18rem] sm:block">
               <Select
                 value={memo.notebookId}
-                disabled={readOnly || notebookUpdatePending}
+                disabled={effectiveReadOnly || notebookUpdatePending}
                 onValueChange={(value) => handleNotebookChange(value)}
               >
                 <SelectTrigger className="h-8 min-w-0 border-transparent bg-transparent px-2 text-sm font-medium text-slate-600 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">
@@ -1082,7 +1125,7 @@ export const EditorPane = ({
               <Tags className="h-4 w-4" />
               <input
                 value={tagsText}
-                readOnly={readOnly}
+                readOnly={effectiveReadOnly}
                 onChange={(event) => {
                   setTagsText(event.target.value);
                   persistCurrentDraft(title, event.target.value);
@@ -1121,7 +1164,7 @@ export const EditorPane = ({
                 value={noteSearchReplacement}
                 className="h-8 min-w-[12rem] flex-1"
                 placeholder="替换为"
-                disabled={readOnly}
+                disabled={effectiveReadOnly}
                 onChange={(event) => setNoteSearchReplacement(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
@@ -1171,7 +1214,7 @@ export const EditorPane = ({
                 variant="solid"
                 title="全部替换"
                 aria-label="全部替换"
-                disabled={readOnly || noteSearchMatches.length === 0}
+                disabled={effectiveReadOnly || noteSearchMatches.length === 0}
                 onClick={replaceAllNoteSearchMatches}
               >
                 <ReplaceAll className="h-4 w-4" />
@@ -1183,12 +1226,25 @@ export const EditorPane = ({
             </Button>
           </div>
         )}
-        <EditorToolbar editor={editor} readOnly={readOnly} />
+        {(!isMobileViewport || isMobileEditing) && <EditorToolbar editor={editor} readOnly={effectiveReadOnly} />}
       </header>
 
       <div className="edgeever-editor min-h-0 flex-1 overflow-y-auto bg-white">
         <EditorContent editor={editor} />
       </div>
+
+      {isMobileViewport && !isMobileEditing && !readOnly && (
+        <Button
+          className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 z-30 h-12 w-12 rounded-full shadow-lg sm:hidden"
+          size="icon"
+          variant="solid"
+          title="编辑笔记"
+          aria-label="编辑笔记"
+          onClick={() => setIsMobileEditing(true)}
+        >
+          <Pencil className="h-5 w-5" />
+        </Button>
+      )}
 
       {historyOpen && (
         <RevisionHistoryDialog
