@@ -309,6 +309,11 @@ export const EditorPane = ({
   useEffect(() => {
     if (memo?.id && memo.id === mobileDefaultEditMemoId) {
       setIsMobileEditing(true);
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          editorRef.current?.commands.focus("end");
+        });
+      });
       onMobileDefaultEditConsumed();
     }
   }, [memo?.id, mobileDefaultEditMemoId, onMobileDefaultEditConsumed]);
