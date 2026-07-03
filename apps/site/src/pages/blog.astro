@@ -7,9 +7,22 @@ import { getFormattedDate } from "@/utils/all";
 const entries = (await getCollection("blog", ({ data }) => !data.draft)).sort(
   (a, b) => b.data.publishDate.getTime() - a.data.publishDate.getTime(),
 );
+
+const blogUrl = new URL(Astro.url.pathname, Astro.site).toString();
+const blogDescription =
+  "EdgeEver 官方博客，记录 Cloudflare 自托管部署、印象笔记迁移、产品更新与 AI Agent 工作流。";
+
+const blogJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  name: "EdgeEver Blog",
+  url: blogUrl,
+  inLanguage: "zh-CN",
+  description: blogDescription,
+};
 ---
 
-<Layout title="Blog">
+<Layout title="博客" description={blogDescription} jsonLd={blogJsonLd}>
   <Container>
     <main class="mx-auto max-w-4xl py-16 md:py-24">
       <div class="mb-10">

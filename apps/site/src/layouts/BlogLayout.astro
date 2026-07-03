@@ -4,9 +4,46 @@ import { getFormattedDate } from "@/utils/all";
 import Layout from "./Layout.astro";
 
 const { frontmatter } = Astro.props;
+const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
+const imageUrl = new URL(frontmatter.image.src, Astro.site).toString();
+
+const articleJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  headline: frontmatter.title,
+  description: frontmatter.snippet,
+  image: imageUrl,
+  datePublished: frontmatter.publishDate.toISOString(),
+  dateModified: frontmatter.publishDate.toISOString(),
+  author: {
+    "@type": "Organization",
+    name: frontmatter.author,
+  },
+  publisher: {
+    "@type": "Organization",
+    name: "EdgeEver",
+    url: new URL("/", Astro.site).toString(),
+  },
+  mainEntityOfPage: {
+    "@type": "WebPage",
+    "@id": canonicalURL,
+  },
+};
 ---
 
-<Layout title={frontmatter.title}>
+<Layout
+  title={frontmatter.title}
+  description={frontmatter.snippet}
+  image={frontmatter.image.src}
+  imageAlt={frontmatter.image.alt}
+  openGraphType="article"
+  articlePublishedTime={frontmatter.publishDate.toISOString()}
+  articleModifiedTime={frontmatter.publishDate.toISOString()}
+  articleAuthor={frontmatter.author}
+  articleSection={frontmatter.category}
+  articleTags={frontmatter.tags}
+  jsonLd={articleJsonLd}
+>
   <Container>
     <div class="mx-auto max-w-[735px] mt-14">
       <span class="text-blue-400 uppercase tracking-wider text-sm font-medium">

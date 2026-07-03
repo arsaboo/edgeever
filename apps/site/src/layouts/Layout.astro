@@ -8,16 +8,40 @@ import "../styles/global.css";
 
 export interface Props {
   title: string;
+  description?: string;
+  image?: string;
+  imageAlt?: string;
+  openGraphType?: "website" | "article";
+  articlePublishedTime?: string;
+  articleModifiedTime?: string;
+  articleAuthor?: string;
+  articleSection?: string;
+  articleTags?: string[];
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+  noindex?: boolean;
 }
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
 
-const resolvedImageWithDomain = new URL(
-  "/opengraph.jpg",
-  Astro.site
-).toString();
+const defaultDescription =
+  "EdgeEver 是一个开源、自托管、Cloudflare-native 的现代笔记工作区。保留经典印象笔记的三栏体验，支持富文本、无限嵌套，原生支持 MCP 对 AI Agent 极度友好，个人托管接近零成本。";
 
-const { title } = Astro.props;
+const {
+  title,
+  description = defaultDescription,
+  image = "/opengraph.jpg",
+  imageAlt = "EdgeEver 笔记应用截图",
+  openGraphType = "website",
+  articlePublishedTime,
+  articleModifiedTime,
+  articleAuthor,
+  articleSection,
+  articleTags,
+  jsonLd,
+  noindex = false,
+} = Astro.props;
+
+const resolvedImageWithDomain = new URL(image, Astro.site).toString();
 
 const makeTitle = title
   ? title + " | " + "EdgeEver"
@@ -38,25 +62,50 @@ const faviconVersion = "edgeever-brand-20260703";
     <!-- <link rel="preload" as="image" href={src} alt="Hero" /> -->
     <SEO
       title={makeTitle}
-      description="EdgeEver 是一个开源、自托管、Cloudflare-native 的现代笔记工作区。保留经典印象笔记的三栏体验，支持富文本、无限嵌套，原生支持 MCP 对 AI Agent 极度友好，个人托管接近零成本。"
+      description={description}
       canonical={canonicalURL}
+      noindex={noindex}
       twitter={{
         creator: "@msh01",
         site: "@edgeever",
         card: "summary_large_image",
+        title: makeTitle,
+        description,
+        image: resolvedImageWithDomain,
+        imageAlt,
       }}
       openGraph={{
         basic: {
           url: canonicalURL,
-          type: "website",
-          title: `EdgeEver - 开源、自托管的 Cloudflare 印象笔记替代方案`,
+          type: openGraphType,
+          title: makeTitle,
           image: resolvedImageWithDomain,
         },
-        image: {
-          alt: "EdgeEver 笔记应用截图",
+        optional: {
+          description,
+          locale: "zh_CN",
+          siteName: "EdgeEver",
         },
+        image: {
+          alt: imageAlt,
+        },
+        article:
+          openGraphType === "article"
+            ? {
+                publishedTime: articlePublishedTime,
+                modifiedTime: articleModifiedTime,
+                authors: articleAuthor ? [articleAuthor] : undefined,
+                section: articleSection,
+                tags: articleTags,
+              }
+            : undefined,
       }}
     />
+    {
+      jsonLd && (
+        <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+      )
+    }
   </head>
   <body>
     <Navbar />
