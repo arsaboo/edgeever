@@ -70,7 +70,7 @@ export const siteCopy = {
           points: [
             "支持无限级嵌套笔记本，适合长期沉淀的大型知识库。",
             "笔记本可以拖拽排序和调整层级，笔记支持多选移动与多选合并。",
-            "基于 TipTap 的富文本编辑器，兼顾流畅写作与结构化内容保存。",
+            "基于 TipTap 的富文本编辑器支持查看笔记历史版本，兼顾流畅写作与内容回溯。",
           ],
         },
         {
@@ -145,7 +145,7 @@ export const siteCopy = {
           points: [
             "Unlimited nested notebooks support long-lived personal knowledge bases.",
             "Drag notebooks to reorder or change hierarchy, and move or merge notes in batches.",
-            "A TipTap-based rich text editor keeps writing smooth while preserving structured content.",
+            "A TipTap-based rich text editor includes note version history for reviewing earlier content.",
           ],
         },
         {

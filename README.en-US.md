@@ -102,6 +102,7 @@ Syncing the fork only updates your GitHub repository. You still need to redeploy
 - Three-pane layout: notebook tree, note list, and main editor.
 - Unlimited nested notebooks.
 - Rich text editing.
+- Note version history for reviewing previous content changes.
 - Local browser-side image compression before upload, often reducing screenshots and large photos by about 50%-90%.
 - Batch note merging.
 - Batch note moving, notebook drag sorting, and hierarchy editing.
