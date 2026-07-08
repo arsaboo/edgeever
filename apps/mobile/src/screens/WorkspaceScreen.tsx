@@ -3719,13 +3719,13 @@ const EditMemoModal = ({
       }
 
       if (memo.isDeleted) {
-        throw new Error("回收站中的笔记不能上传图片");
+        throw new Error("回收站中的笔记不能上传资源");
       }
 
       const result = await DocumentPicker.getDocumentAsync({
         copyToCacheDirectory: true,
         multiple: true,
-        type: "image/*",
+        type: "*/*",
       });
 
       if (result.canceled) {
@@ -3735,7 +3735,7 @@ const EditMemoModal = ({
       const assets = result.assets.filter((asset) => asset.uri);
 
       if (assets.length === 0) {
-        throw new Error("没有选择图片");
+        throw new Error("没有选择文件");
       }
 
       const uploadedResources = [];
@@ -3747,7 +3747,7 @@ const EditMemoModal = ({
 
         const { resource } = await client.uploadMemoResource(memo.id, form);
         uploadedResources.push({
-          filename: resource.filename || uploadAsset.name || asset.name || "image",
+          filename: resource.filename || uploadAsset.name || asset.name || "upload",
           kind: resource.kind,
           url: resource.url,
         });
@@ -3872,7 +3872,7 @@ const EditMemoModal = ({
             }}
             onInsertText={() => setInsertTextOpen(true)}
             onPasteText={() => void pasteClipboardText()}
-            onUploadImage={() => uploadResourceMutation.mutate()}
+            onUploadResource={() => uploadResourceMutation.mutate()}
           />
           <View style={styles.noteSearchPanel}>
             <View style={styles.searchBox}>
@@ -4355,19 +4355,19 @@ const MarkdownToolbar = ({
   onAction,
   onInsertText,
   onPasteText,
-  onUploadImage,
+  onUploadResource,
 }: {
   isUploading?: boolean;
   onAction: (action: MarkdownAction) => void;
   onInsertText?: () => void;
   onPasteText?: () => void;
-  onUploadImage?: () => void;
+  onUploadResource?: () => void;
 }) => (
   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.markdownToolbar}>
     {onPasteText ? <MarkdownToolbarButton icon={<Copy color="#334155" size={15} />} label="粘贴" onPress={onPasteText} /> : null}
     {onInsertText ? <MarkdownToolbarButton icon={<Pencil color="#334155" size={15} />} label="输入" onPress={onInsertText} /> : null}
-    {onUploadImage ? (
-      <MarkdownToolbarButton disabled={isUploading} icon={<ImagePlus color="#334155" size={15} />} label={isUploading ? "上传中" : "图片"} onPress={onUploadImage} />
+    {onUploadResource ? (
+      <MarkdownToolbarButton disabled={isUploading} icon={<ImagePlus color="#334155" size={15} />} label={isUploading ? "上传中" : "资源"} onPress={onUploadResource} />
     ) : null}
     <MarkdownToolbarButton icon={<Heading2 color="#334155" size={15} />} label="标题" onPress={() => onAction("heading")} />
     <MarkdownToolbarButton icon={<Bold color="#334155" size={15} />} label="加粗" onPress={() => onAction("bold")} />
