@@ -28,6 +28,7 @@ import {
   LogOut,
   Merge,
   Minus,
+  MoreHorizontal,
   Pencil,
   Pin,
   Plus,
@@ -208,6 +209,7 @@ export const WorkspaceScreen = () => {
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [notesActionsOpen, setNotesActionsOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [editingMemo, setEditingMemo] = useState<MemoDetail | null>(null);
   const [richEditingMemo, setRichEditingMemo] = useState<MemoDetail | null>(null);
@@ -733,6 +735,7 @@ export const WorkspaceScreen = () => {
           onEmptyTrash={handleEmptyTrash}
           onFilterModeChange={setMemoFilterMode}
           onMemoListDensityChange={handleMemoListDensityChange}
+          onOpenActions={() => setNotesActionsOpen(true)}
           onOpenTemplates={() => setTemplatesOpen(true)}
           onMemoPress={handleMemoPress}
           onMemoLongPress={toggleSelectedMemo}
@@ -882,6 +885,28 @@ export const WorkspaceScreen = () => {
         visible={selectionMoveOpen}
       />
 
+      <NotesActionsModal
+        memoView={memoView}
+        onClose={() => setNotesActionsOpen(false)}
+        onOpenApiTokens={() => {
+          setNotesActionsOpen(false);
+          setApiTokensOpen(true);
+        }}
+        onOpenResources={() => {
+          setNotesActionsOpen(false);
+          setResourcesOpen(true);
+        }}
+        onOpenTags={() => {
+          setNotesActionsOpen(false);
+          setTagsManagerOpen(true);
+        }}
+        onToggleTrash={() => {
+          setNotesActionsOpen(false);
+          setMemoView(memoView === "trash" ? "notebook" : "trash");
+        }}
+        visible={notesActionsOpen}
+      />
+
       {activeView === "notes" && selectedMemoIds.size > 0 ? (
         <SelectionActionBar
           canMerge={memoView !== "trash" && selectedMemoIds.size >= 2}
@@ -968,6 +993,7 @@ const NotesView = ({
   onEmptyTrash,
   onFilterModeChange,
   onMemoListDensityChange,
+  onOpenActions,
   onMemoLongPress,
   onMemoPress,
   onOpenTemplates,
@@ -997,6 +1023,7 @@ const NotesView = ({
   onEmptyTrash: () => void;
   onFilterModeChange: (filterMode: MemoFilterMode) => void;
   onMemoListDensityChange: (density: MobileMemoListDensity) => void;
+  onOpenActions: () => void;
   onMemoLongPress: (memoId: string) => void;
   onMemoPress: (memoId: string) => void;
   onOpenTemplates: () => void;
@@ -1031,6 +1058,9 @@ const NotesView = ({
         <Text style={styles.sectionSubtitle}>{memoCount} 条笔记</Text>
       </View>
       <View style={styles.contentActions}>
+        <Pressable accessibilityRole="button" onPress={onOpenActions} style={styles.secondaryIconButton}>
+          <MoreHorizontal color="#0f172a" size={18} />
+        </Pressable>
         <Pressable accessibilityRole="button" onPress={() => onSetMemoView(memoView === "trash" ? "notebook" : "trash")} style={styles.secondaryIconButton}>
           {memoView === "trash" ? <BookOpen color="#0f172a" size={18} /> : <Trash2 color="#0f172a" size={18} />}
         </Pressable>
@@ -1091,6 +1121,48 @@ const NotesView = ({
       selectedMemoIds={selectedMemoIds}
     />
   </View>
+);
+
+const NotesActionsModal = ({
+  memoView,
+  onClose,
+  onOpenApiTokens,
+  onOpenResources,
+  onOpenTags,
+  onToggleTrash,
+  visible,
+}: {
+  memoView: MemoView;
+  onClose: () => void;
+  onOpenApiTokens: () => void;
+  onOpenResources: () => void;
+  onOpenTags: () => void;
+  onToggleTrash: () => void;
+  visible: boolean;
+}) => (
+  <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
+    <Pressable onPress={onClose} style={styles.actionSheetBackdrop}>
+      <Pressable style={styles.actionSheet}>
+        <View style={styles.actionSheetHandle} />
+        <Text style={styles.actionSheetTitle}>列表操作</Text>
+        <ActionSheetItem icon={<Tag color="#0f172a" size={18} />} label="标签管理" onPress={onOpenTags} />
+        <ActionSheetItem icon={<Archive color="#0f172a" size={18} />} label="资源库" onPress={onOpenResources} />
+        <ActionSheetItem
+          icon={memoView === "trash" ? <BookOpen color="#0f172a" size={18} /> : <Trash2 color="#b91c1c" size={18} />}
+          label={memoView === "trash" ? "返回笔记列表" : "回收站"}
+          onPress={onToggleTrash}
+        />
+        <ActionSheetItem icon={<KeyRound color="#0f172a" size={18} />} label="MCP Token" onPress={onOpenApiTokens} />
+      </Pressable>
+    </Pressable>
+  </Modal>
+);
+
+const ActionSheetItem = ({ icon, label, onPress }: { icon: ReactNode; label: string; onPress: () => void }) => (
+  <Pressable accessibilityRole="button" onPress={onPress} style={styles.actionSheetItem}>
+    {icon}
+    <Text style={styles.actionSheetItemText}>{label}</Text>
+  </Pressable>
 );
 
 const SearchView = ({
@@ -4605,6 +4677,50 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginHorizontal: 12,
     textAlign: "center",
+  },
+  actionSheetBackdrop: {
+    backgroundColor: "rgba(15, 23, 42, 0.34)",
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  actionSheet: {
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    gap: 8,
+    paddingBottom: 28,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  actionSheetHandle: {
+    alignSelf: "center",
+    backgroundColor: "#cbd5e1",
+    borderRadius: 999,
+    height: 4,
+    marginBottom: 8,
+    width: 42,
+  },
+  actionSheetTitle: {
+    color: "#0f172a",
+    fontSize: 15,
+    fontWeight: "800",
+    paddingBottom: 4,
+  },
+  actionSheetItem: {
+    alignItems: "center",
+    backgroundColor: "#f8fafc",
+    borderColor: "#e2e8f0",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    minHeight: 48,
+    paddingHorizontal: 12,
+  },
+  actionSheetItemText: {
+    color: "#0f172a",
+    fontSize: 14,
+    fontWeight: "800",
   },
   detailContent: {
     padding: 18,
