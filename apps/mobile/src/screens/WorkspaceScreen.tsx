@@ -1335,7 +1335,8 @@ const NotesView = ({
     ) : null}
 
     <MemoList
-      emptyDescription={memoView === "trash" ? "删除的笔记会出现在这里" : "点右上角按钮创建第一条笔记"}
+      emptyAction={memoView === "notebook" && notebooks.length > 0 ? { label: "新建笔记", onPress: onCreate } : undefined}
+      emptyDescription={memoView === "trash" ? "删除的笔记会出现在这里" : notebooks.length > 0 ? "点击下方加号或这里创建第一条笔记" : "请先创建一个笔记本"}
       emptyTitle={memoView === "trash" ? "回收站为空" : "暂无笔记"}
       error={error}
       isError={isError}
@@ -4342,6 +4343,7 @@ const EditMemoModal = ({
 };
 
 const MemoList = ({
+  emptyAction,
   emptyDescription,
   emptyTitle,
   error,
@@ -4356,6 +4358,7 @@ const MemoList = ({
   selectionMode = false,
   selectedMemoIds = new Set(),
 }: {
+  emptyAction?: { label: string; onPress: () => void };
   emptyDescription: string;
   emptyTitle: string;
   error?: unknown;
@@ -4408,6 +4411,12 @@ const MemoList = ({
           <BookOpen color="#94a3b8" size={32} />
           <Text style={styles.emptyTitle}>{emptyTitle}</Text>
           <Text style={styles.mutedText}>{emptyDescription}</Text>
+          {emptyAction ? (
+            <Pressable accessibilityRole="button" onPress={emptyAction.onPress} style={styles.emptyActionButton}>
+              <Plus color="#ffffff" size={18} />
+              <Text style={styles.emptyActionButtonText}>{emptyAction.label}</Text>
+            </Pressable>
+          ) : null}
         </View>
       }
     />
@@ -5993,6 +6002,21 @@ const styles = StyleSheet.create({
     color: "#64748b",
     fontSize: 13,
     textAlign: "center",
+  },
+  emptyActionButton: {
+    alignItems: "center",
+    backgroundColor: "#0f172a",
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 8,
+    minHeight: 38,
+    paddingHorizontal: 14,
+  },
+  emptyActionButtonText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "800",
   },
   panelList: {
     gap: 12,
