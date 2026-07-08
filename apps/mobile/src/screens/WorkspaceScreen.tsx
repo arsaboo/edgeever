@@ -232,6 +232,7 @@ export const WorkspaceScreen = () => {
   const [searchText, setSearchText] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [notesActionsOpen, setNotesActionsOpen] = useState(false);
+  const [notebookPickerOpen, setNotebookPickerOpen] = useState(false);
   const [memoActionsMemo, setMemoActionsMemo] = useState<MemoSummary | null>(null);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [editingMemo, setEditingMemo] = useState<MemoDetail | null>(null);
@@ -833,6 +834,7 @@ export const WorkspaceScreen = () => {
           onFilterModeChange={setMemoFilterMode}
           onMemoListDensityChange={handleMemoListDensityChange}
           onOpenActions={() => setNotesActionsOpen(true)}
+          onOpenNotebookPicker={() => setNotebookPickerOpen(true)}
           onOpenTemplates={() => setTemplatesOpen(true)}
           onMemoPress={handleMemoPress}
           onMemoLongPress={(memo) => setMemoActionsMemo(memo)}
@@ -922,6 +924,18 @@ export const WorkspaceScreen = () => {
         updateMutation={updateMemoMutation}
       />
       <RichEditorModal baseUrl={session?.baseUrl ?? ""} memo={richEditingMemo} notebooks={notebooks} onClose={closeRichEditor} token={session?.token ?? ""} />
+      <NotebookPickerModal
+        activeNotebookId={activeNotebookId}
+        notebookSortMode={notebookSortMode}
+        notebooks={notebooks}
+        notebooksMemoCount={memoCount}
+        onClose={() => setNotebookPickerOpen(false)}
+        onSelect={(notebookId) => {
+          setActiveNotebookId(notebookId);
+          setNotebookPickerOpen(false);
+        }}
+        visible={notebookPickerOpen}
+      />
 
       <NotebookManagerModal
         notebookSortMode={notebookSortMode}
@@ -1136,6 +1150,7 @@ const NotesView = ({
   onFilterModeChange,
   onMemoListDensityChange,
   onOpenActions,
+  onOpenNotebookPicker,
   onMemoLongPress,
   onMemoPress,
   onOpenTemplates,
@@ -1167,6 +1182,7 @@ const NotesView = ({
   onFilterModeChange: (filterMode: MemoFilterMode) => void;
   onMemoListDensityChange: (density: MobileMemoListDensity) => void;
   onOpenActions: () => void;
+  onOpenNotebookPicker: () => void;
   onMemoLongPress: (memo: MemoSummary) => void;
   onMemoPress: (memoId: string) => void;
   onOpenTemplates: () => void;
@@ -1202,6 +1218,11 @@ const NotesView = ({
         <Text style={styles.sectionSubtitle}>{memoCount} 条笔记</Text>
       </View>
       <View style={styles.contentActions}>
+        {memoView === "notebook" ? (
+          <Pressable accessibilityRole="button" onPress={onOpenNotebookPicker} style={styles.secondaryIconButton}>
+            <Folder color="#0f172a" size={18} />
+          </Pressable>
+        ) : null}
         <Pressable accessibilityRole="button" onPress={onOpenActions} style={styles.secondaryIconButton}>
           <MoreHorizontal color="#0f172a" size={18} />
         </Pressable>
@@ -1324,6 +1345,101 @@ const NotesActionsModal = ({
     </Pressable>
   </Modal>
 );
+
+const NotebookPickerModal = ({
+  activeNotebookId,
+  notebookSortMode,
+  notebooks,
+  notebooksMemoCount,
+  onClose,
+  onSelect,
+  visible,
+}: {
+  activeNotebookId: string;
+  notebookSortMode: MobileNotebookSortMode;
+  notebooks: Notebook[];
+  notebooksMemoCount: number;
+  onClose: () => void;
+  onSelect: (notebookId: string) => void;
+  visible: boolean;
+}) => {
+  const [searchText, setSearchText] = useState("");
+  const notebookOptions = flattenNotebooks(notebooks, notebookSortMode);
+  const visibleNotebookOptions = filterNotebookOptions(notebookOptions, searchText);
+
+  useEffect(() => {
+    if (visible) {
+      setSearchText("");
+    }
+  }, [visible]);
+
+  return (
+    <Modal animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet" visible={visible}>
+      <SafeAreaView style={styles.modalSafeArea}>
+        <View style={styles.modalHeader}>
+          <IconButton onPress={onClose}>
+            <X color="#0f172a" size={20} />
+          </IconButton>
+          <Text style={styles.modalTitle}>选择笔记本</Text>
+          <View style={styles.iconButtonPlaceholder} />
+        </View>
+
+        <ScrollView contentContainerStyle={styles.editorForm}>
+          <View style={styles.searchBox}>
+            <Search color="#64748b" size={18} />
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              onChangeText={setSearchText}
+              placeholder="搜索笔记本"
+              placeholderTextColor="#94a3b8"
+              style={styles.searchInput}
+              value={searchText}
+            />
+            {searchText ? (
+              <Pressable onPress={() => setSearchText("")}>
+                <X color="#64748b" size={18} />
+              </Pressable>
+            ) : null}
+          </View>
+
+          <Pressable onPress={() => onSelect(ALL_NOTES_ID)} style={[styles.moveNotebookRow, activeNotebookId === ALL_NOTES_ID && styles.moveNotebookRowActive]}>
+            <View style={styles.moveNotebookText}>
+              <Text numberOfLines={1} style={styles.panelValue}>
+                全部笔记
+              </Text>
+              <Text style={styles.panelLabel}>{notebooksMemoCount} 条笔记</Text>
+            </View>
+            {activeNotebookId === ALL_NOTES_ID ? <Check color="#0f172a" size={18} /> : null}
+          </Pressable>
+
+          <Text style={styles.label}>{searchText.trim() ? "匹配的笔记本" : "笔记本"}</Text>
+          {visibleNotebookOptions.map(({ depth, notebook }) => (
+            <Pressable
+              key={notebook.id}
+              onPress={() => onSelect(notebook.id)}
+              style={[styles.moveNotebookRow, activeNotebookId === notebook.id && styles.moveNotebookRowActive, depth > 0 && { marginLeft: Math.min(depth * 14, 42) }]}
+            >
+              <View style={styles.moveNotebookText}>
+                <Text numberOfLines={1} style={styles.panelValue}>
+                  {depth > 0 ? `${"· ".repeat(depth)}${notebook.name}` : notebook.name}
+                </Text>
+                <Text style={styles.panelLabel}>{notebook.memoCount} 条笔记</Text>
+              </View>
+              {activeNotebookId === notebook.id ? <Check color="#0f172a" size={18} /> : null}
+            </Pressable>
+          ))}
+          {visibleNotebookOptions.length === 0 ? (
+            <View style={styles.emptyInlinePanel}>
+              <Folder color="#94a3b8" size={28} />
+              <Text style={styles.mutedText}>没有匹配的笔记本</Text>
+            </View>
+          ) : null}
+        </ScrollView>
+      </SafeAreaView>
+    </Modal>
+  );
+};
 
 const MemoActionsModal = ({
   isBusy,
