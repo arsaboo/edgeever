@@ -368,6 +368,10 @@ export const enUS = {
   editor: {
     imageScale: "Image scale",
     scaleTo: "Scale to {{percent}}%",
+    imageSizeSmall: "Small",
+    imageSizeMedium: "Medium",
+    imageSizeLarge: "Large",
+    imageSizeFull: "Full",
     resizeImage: "Drag to resize image width",
     currentNotebook: "Current notebook",
     close: "Close",

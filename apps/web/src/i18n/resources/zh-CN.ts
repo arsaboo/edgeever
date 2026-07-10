@@ -368,6 +368,10 @@ export const zhCN = {
   editor: {
     imageScale: "图片缩放",
     scaleTo: "缩放到 {{percent}}%",
+    imageSizeSmall: "较小",
+    imageSizeMedium: "适中",
+    imageSizeLarge: "较大",
+    imageSizeFull: "铺满",
     resizeImage: "拖拽调整图片宽度",
     currentNotebook: "所在笔记本",
     close: "关闭",

@@ -4,6 +4,7 @@ import { NodeViewWrapper, ReactNodeViewRenderer, useEditor, EditorContent, type 
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
+import { useTranslation } from "react-i18next";
 import {
   ChevronLeft,
   ChevronRight,
@@ -68,7 +69,12 @@ const MOBILE_DRAFT_PERSIST_DELAY_MS = 800;
 const DEFAULT_IMAGE_WIDTH_PERCENT = 72;
 const MIN_IMAGE_WIDTH_PERCENT = 25;
 const MAX_IMAGE_WIDTH_PERCENT = 100;
-const IMAGE_WIDTH_PRESETS = [35, 50, 72, 100];
+const IMAGE_WIDTH_PRESETS = [
+  { width: 35, labelKey: "editor.imageSizeSmall" },
+  { width: 50, labelKey: "editor.imageSizeMedium" },
+  { width: 72, labelKey: "editor.imageSizeLarge" },
+  { width: 100, labelKey: "editor.imageSizeFull" },
+] as const;
 
 type NoteSearchMatch = {
   from: number;
@@ -234,6 +240,7 @@ const parseImageWidth = (value: unknown) => {
 };
 
 const ResizableImageNodeView = ({ editor, node, selected, updateAttributes }: NodeViewProps) => {
+  const { t } = useTranslation();
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [previewWidth, setPreviewWidth] = useState<number | null>(null);
   const nodeWidth = parseImageWidth(node.attrs.width) ?? DEFAULT_IMAGE_WIDTH_PERCENT;
@@ -309,25 +316,26 @@ const ResizableImageNodeView = ({ editor, node, selected, updateAttributes }: No
       <img src={src} alt={alt} title={title || undefined} draggable={false} />
       {editable && selected && (
         <div className="edgeever-image-controls" contentEditable={false}>
-          <div className="edgeever-image-presets" aria-label="图片缩放">
+          <div className="edgeever-image-presets" aria-label={t("editor.imageScale")}>
             {IMAGE_WIDTH_PRESETS.map((preset) => (
               <button
-                key={preset}
+                key={preset.width}
                 type="button"
-                className={cn("edgeever-image-preset", width === preset && "is-active")}
-                title={`缩放到 ${preset}%`}
-                aria-label={`缩放到 ${preset}%`}
-                onClick={() => updateWidth(preset)}
+                className={cn("edgeever-image-preset", width === preset.width && "is-active")}
+                title={t("editor.scaleTo", { percent: preset.width })}
+                aria-label={`${t(preset.labelKey)}，${t("editor.scaleTo", { percent: preset.width })}`}
+                onClick={() => updateWidth(preset.width)}
               >
-                {preset}
+                <span>{t(preset.labelKey)}</span>
+                <span className="edgeever-image-preset-percent">{preset.width}%</span>
               </button>
             ))}
           </div>
           <button
             type="button"
             className="edgeever-image-resize-handle"
-            title="拖拽调整图片宽度"
-            aria-label="拖拽调整图片宽度"
+            title={t("editor.resizeImage")}
+            aria-label={t("editor.resizeImage")}
             onPointerDown={startResize}
           />
         </div>
