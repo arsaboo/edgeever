@@ -70,7 +70,7 @@ Chinese version:
    - copy `.env.local.example` to `.env.local` when needed
    - reuse or create the D1 database
    - create the R2 buckets when needed
-   - generate `EDGE_EVER_AUTH_PASSWORD_HASH` from `EDGE_EVER_PASSWORD`
+   - save `EDGE_EVER_PASSWORD` as `EDGE_EVER_AUTH_PASSWORD` in the private `.env.local`
 
 5. Check the deployment inputs.
 
@@ -86,7 +86,7 @@ Chinese version:
    bun run deploy
    ```
 
-   `bun run deploy` builds the web app, applies remote D1 migrations, and deploys the Worker. During deploy, `scripts/run-wrangler.mjs` uploads `EDGE_EVER_AUTH_PASSWORD_HASH` as a Worker Secret via a generated `.env.wrangler.generated*.secrets` file, then synchronizes it again with `wrangler secret put` after a successful deployment so the first login does not depend on the bulk secrets upload alone.
+   `bun run deploy` builds the web app, applies remote D1 migrations, and deploys the Worker. During deploy, `scripts/run-wrangler.mjs` uploads `EDGE_EVER_AUTH_PASSWORD` as a Worker Secret via a generated `.env.wrangler.generated*.secrets` file, then synchronizes it again with `wrangler secret put` after a successful deployment so the first login does not depend on the bulk secrets upload alone. Existing `EDGE_EVER_AUTH_PASSWORD_HASH` configurations remain supported and take precedence when both Secrets exist.
 
 7. Verify the result.
 
@@ -121,6 +121,7 @@ EDGE_EVER_D1_DATABASE_NAME=edgeever
 EDGE_EVER_R2_BUCKET_NAME=edgeever-resources
 EDGE_EVER_R2_PREVIEW_BUCKET_NAME=edgeever-resources-preview
 EDGE_EVER_AUTH_USERNAME=admin
+EDGE_EVER_AUTH_PASSWORD=<login-password>
 EDGE_EVER_SESSION_TTL_DAYS=400
 EDGE_EVER_CUSTOM_DOMAIN=notes.example.com
 ```
@@ -131,8 +132,10 @@ For multiple instances, set `EDGE_EVER_INSTANCE=<name>` and use scoped variables
 EDGE_EVER_PROD_WORKER_NAME=edgeever-prod
 EDGE_EVER_PROD_D1_DATABASE_ID=<database-id>
 EDGE_EVER_PROD_R2_BUCKET_NAME=edgeever-prod-resources
-EDGE_EVER_PROD_AUTH_PASSWORD_HASH=<password-hash>
+EDGE_EVER_PROD_AUTH_PASSWORD=<login-password>
 ```
+
+Legacy or advanced installations may use `EDGE_EVER_<INSTANCE>_AUTH_PASSWORD_HASH` instead. Never place either password value in a committed file or a non-secret Cloudflare variable.
 
 ## Blocking Conditions
 

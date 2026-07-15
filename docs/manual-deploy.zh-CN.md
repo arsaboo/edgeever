@@ -48,13 +48,10 @@ bunx wrangler d1 create edgeever
 # 手动创建 R2 存储桶
 bunx wrangler r2 bucket create edgeever-resources
 
-# 生成密码 hash（用于后台验证）
-bun run auth:hash -- <你的密码>
-
 # 编辑 .env.local，至少填入刚创建的资源和密码配置
 # EDGE_EVER_D1_DATABASE_ID=<D1 创建命令返回的 database_id>
 # EDGE_EVER_R2_BUCKET_NAME=edgeever-resources
-# EDGE_EVER_AUTH_PASSWORD_HASH=<上一步生成的 hash>
+# EDGE_EVER_AUTH_PASSWORD=<你的登录密码>
 # EDGE_EVER_SESSION_TTL_DAYS=400
 
 # 确认配置完整后再部署
@@ -62,9 +59,11 @@ bun run deploy:doctor
 bun run deploy
 ```
 
-必须在执行 `bun run deploy` **之前**，将 D1 创建命令返回的 `database_id`、R2 bucket 名称和生成的密码 hash 写入本机 `.env.local`。会话有效期建议保留模板中的 `400` 天；服务端也会把更大的值限制为 400 天。
+必须在执行 `bun run deploy` **之前**，将 D1 创建命令返回的 `database_id`、R2 bucket 名称和登录密码写入本机 `.env.local`。会话有效期建议保留模板中的 `400` 天；服务端也会把更大的值限制为 400 天。
 
-`bun run deploy` 会构建 Web 应用、执行远程 D1 migration、部署 Worker，并将 `EDGE_EVER_AUTH_PASSWORD_HASH` 作为 Worker Secret 上传。部署脚本还会在成功后通过 `wrangler secret put` 再同步一次该 Secret，确保首次登录可用。部署完成后，请使用 `.env.local` 中的 `EDGE_EVER_AUTH_USERNAME` 和生成 hash 时使用的原始密码登录验证。
+`bun run deploy` 会构建 Web 应用、执行远程 D1 migration、部署 Worker，并将 `EDGE_EVER_AUTH_PASSWORD` 作为 Worker Secret 上传。首次登录成功后，EdgeEver 会将加盐的 PBKDF2-SHA256 哈希写入 D1。已有实例可以继续使用 `EDGE_EVER_AUTH_PASSWORD_HASH`；两个 Secret 同时存在时优先使用哈希。部署完成后，请使用 `.env.local` 中的 `EDGE_EVER_AUTH_USERNAME` 和配置的密码登录验证。
+
+已有实例无需迁移。如果确实要从哈希配置切换为 `EDGE_EVER_AUTH_PASSWORD`，需要同时从 `.env.local`、Workers Builds 和 Worker 运行时 Secrets 中移除旧的 `EDGE_EVER_AUTH_PASSWORD_HASH`，否则旧哈希仍会优先生效。
 
 ---
 

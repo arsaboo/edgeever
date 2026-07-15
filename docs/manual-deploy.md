@@ -48,13 +48,10 @@ bunx wrangler d1 create edgeever
 # Create the R2 bucket
 bunx wrangler r2 bucket create edgeever-resources
 
-# Generate the password hash
-bun run auth:hash -- <your password>
-
 # Edit .env.local and fill in at least the generated resource and password values
 # EDGE_EVER_D1_DATABASE_ID=<database_id returned by the D1 command>
 # EDGE_EVER_R2_BUCKET_NAME=edgeever-resources
-# EDGE_EVER_AUTH_PASSWORD_HASH=<hash generated above>
+# EDGE_EVER_AUTH_PASSWORD=<your login password>
 # EDGE_EVER_SESSION_TTL_DAYS=400
 
 # Validate the completed configuration before deploying
@@ -62,9 +59,11 @@ bun run deploy:doctor
 bun run deploy
 ```
 
-Before running `bun run deploy`, copy the D1 `database_id`, R2 bucket name, and generated password hash into your local `.env.local` file. Keep the session lifetime at the template default of `400` days; the server also caps larger values at 400 days.
+Before running `bun run deploy`, copy the D1 `database_id`, R2 bucket name, and login password into your local `.env.local` file. Keep the session lifetime at the template default of `400` days; the server also caps larger values at 400 days.
 
-`bun run deploy` builds the web app, applies remote D1 migrations, deploys the Worker, and uploads `EDGE_EVER_AUTH_PASSWORD_HASH` as a Worker Secret. After a successful deployment, the script also synchronizes that Secret through `wrangler secret put` to ensure the first login works. Verify the deployment by signing in with `EDGE_EVER_AUTH_USERNAME` and the original password used to generate the hash.
+`bun run deploy` builds the web app, applies remote D1 migrations, deploys the Worker, and uploads `EDGE_EVER_AUTH_PASSWORD` as a Worker Secret. After the first successful login, EdgeEver stores a salted PBKDF2-SHA256 hash in D1. Existing installations may continue to use `EDGE_EVER_AUTH_PASSWORD_HASH`; when both Secrets are set, the hash takes precedence. Verify the deployment by signing in with `EDGE_EVER_AUTH_USERNAME` and the configured password.
+
+Existing installations do not need to migrate. If you intentionally switch from the hash setting to `EDGE_EVER_AUTH_PASSWORD`, remove the old `EDGE_EVER_AUTH_PASSWORD_HASH` from `.env.local`, Workers Builds, and the Worker's runtime Secrets; otherwise the legacy hash remains authoritative.
 
 ---
 
