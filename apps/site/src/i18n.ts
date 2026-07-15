@@ -4,8 +4,8 @@ export const defaultSiteLocale: SiteLocale = "zh-CN";
 export const siteLocaleStorageKey = "edgeever.site.locale";
 export const siteLocaleDataAttribute = "data-edgeever-site-locale";
 export const siteTaglines = {
-  "zh-CN": "部署在自己 Cloudflare 上的开源笔记工作区：熟悉三栏体验，数据开放，原生支持 AI Agent",
-  "en-US": "An open-source notes workspace on your own Cloudflare account, with familiar workflows, open data, and native AI Agent access.",
+  "zh-CN": "无需服务器、零费用、开源且原生支持 AI Agent 的自托管『印象笔记』替代品",
+  "en-US": "A serverless, 100% free, open-source, and AI-native self-hosted Evernote alternative on Cloudflare.",
 } as const satisfies Record<SiteLocale, string>;
 
 export const getSiteLocale = (pathname: string): SiteLocale => (pathname === "/en" || pathname.startsWith("/en/") ? "en-US" : "zh-CN");
