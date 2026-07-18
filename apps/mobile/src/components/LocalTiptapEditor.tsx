@@ -6,7 +6,7 @@ import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import type { TiptapDoc } from "@edgeever/shared";
 import { useDOMImperativeHandle, type DOMImperativeFactory, type DOMProps } from "expo/dom";
-import { useCallback, useEffect, useRef, type ReactNode, type Ref } from "react";
+import { useCallback, useEffect, useMemo, useRef, type ReactNode, type Ref } from "react";
 
 type EditorDoc = TiptapDoc;
 
@@ -17,10 +17,7 @@ type PickedImage = {
 
 export interface LocalTiptapEditorRef extends DOMImperativeFactory {
   flush: () => void;
-  focus: () => void;
   focusEnd: () => void;
-  replaceAll: DOMImperativeFactory[string];
-  search: DOMImperativeFactory[string];
 }
 
 type LocalTiptapEditorProps = {
@@ -28,9 +25,9 @@ type LocalTiptapEditorProps = {
   content: EditorDoc;
   dom?: DOMProps;
   onChange: (content: EditorDoc) => Promise<void>;
+  onLoadResource: (source: string) => Promise<string | null>;
   onPickImage: () => Promise<PickedImage | null>;
   onReady: (startupMs: number) => Promise<void>;
-  onSearchState?: (count: number, activeIndex: number) => Promise<void>;
   ref: Ref<LocalTiptapEditorRef>;
   locale: "zh-CN" | "en-US";
   theme: "light" | "dark";
@@ -42,22 +39,23 @@ export default function LocalTiptapEditor(props: LocalTiptapEditorProps) {
   const startedAtRef = useRef(performance.now());
   const changeTimerRef = useRef<number | null>(null);
   const onChangeRef = useRef(props.onChange);
+  const onLoadResourceRef = useRef(props.onLoadResource);
   const onPickImageRef = useRef(props.onPickImage);
   const onReadyRef = useRef(props.onReady);
-  const onSearchStateRef = useRef(props.onSearchState);
 
   onChangeRef.current = props.onChange;
+  onLoadResourceRef.current = props.onLoadResource;
   onPickImageRef.current = props.onPickImage;
   onReadyRef.current = props.onReady;
-  onSearchStateRef.current = props.onSearchState;
+  const protectedImageExtension = useMemo(
+    () => createProtectedImageExtension(props.baseUrl, (source) => onLoadResourceRef.current(source)),
+    [props.baseUrl]
+  );
 
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Image.configure({
-        allowBase64: false,
-        inline: false,
-      }),
+      protectedImageExtension,
       Placeholder.configure({
         placeholder: props.locale === "en-US" ? "Start writing..." : "开始记录...",
       }),
@@ -95,80 +93,13 @@ export default function LocalTiptapEditor(props: LocalTiptapEditorProps) {
     void onChangeRef.current(normalizeImageSources(editor.getJSON() as EditorDoc, props.baseUrl));
   }, [editor, props.baseUrl]);
 
-  const findSearchMatches = useCallback((query: string) => {
-    const needle = query.trim().toLocaleLowerCase();
-    if (!editor || editor.isDestroyed || needle.length === 0) {
-      return [];
-    }
-
-    const characters: Array<{ char: string; pos: number }> = [];
-    let previousTextEnd: number | null = null;
-    editor.state.doc.descendants((node, pos) => {
-      if (!node.isText || !node.text) {
-        return;
-      }
-      if (previousTextEnd !== null && pos > previousTextEnd) {
-        characters.push({ char: "\u0000", pos: -1 });
-      }
-      for (let index = 0; index < node.text.length; index += 1) {
-        characters.push({ char: node.text[index] ?? "", pos: pos + index });
-      }
-      previousTextEnd = pos + node.text.length;
-    });
-
-    const haystack = characters.map((item) => item.char).join("").toLocaleLowerCase();
-    const matches: Array<{ from: number; to: number }> = [];
-    let index = haystack.indexOf(needle);
-    while (index !== -1) {
-      const start = characters[index];
-      const end = characters[index + needle.length - 1];
-      if (start && end && start.pos >= 0 && end.pos >= 0) {
-        matches.push({ from: start.pos, to: end.pos + 1 });
-      }
-      index = haystack.indexOf(needle, index + needle.length);
-    }
-    return matches;
-  }, [editor]);
-
-  const search = useCallback((query: string, requestedIndex: number) => {
-    const matches = findSearchMatches(query);
-    const activeIndex = matches.length > 0
-      ? ((Math.trunc(requestedIndex) % matches.length) + matches.length) % matches.length
-      : 0;
-    const match = matches[activeIndex];
-    if (match && editor && !editor.isDestroyed) {
-      editor.chain().setTextSelection(match).scrollIntoView().run();
-    }
-    void onSearchStateRef.current?.(matches.length, activeIndex);
-  }, [editor, findSearchMatches]);
-
-  const replaceAll = useCallback((query: string, replacement: string) => {
-    const matches = findSearchMatches(query);
-    if (!editor || editor.isDestroyed || matches.length === 0) {
-      void onSearchStateRef.current?.(0, 0);
-      return;
-    }
-
-    editor.chain().command(({ tr, dispatch }) => {
-      for (const match of [...matches].reverse()) {
-        tr.insertText(replacement, match.from, match.to);
-      }
-      dispatch?.(tr);
-      return true;
-    }).run();
-    window.requestAnimationFrame(() => search(query, 0));
-  }, [editor, findSearchMatches, search]);
-
   useDOMImperativeHandle(
     props.ref,
     () => ({
       flush,
-      focus: () => editor?.commands.focus(),
       focusEnd: () => editor?.commands.focus("end"),
-      replaceAll: (...args: Parameters<DOMImperativeFactory[string]>) => replaceAll(String(args[0] ?? ""), String(args[1] ?? "")),
-      search: (...args: Parameters<DOMImperativeFactory[string]>) => search(String(args[0] ?? ""), Number(args[1] ?? 0)),
     }),
-    [editor, flush, replaceAll, search]
+    [editor, flush]
   );
 
   useEffect(() => {
@@ -313,12 +244,82 @@ const normalizeImageSources = (doc: EditorDoc, baseUrl: string) => {
   return mapImageSources(doc, (source) => source.startsWith(`${normalizedBaseUrl}/`) ? source.slice(normalizedBaseUrl.length) : source);
 };
 
+const normalizeProtectedResourceSource = (source: string, baseUrl: string) => {
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
+  const relativeSource = source.startsWith(`${normalizedBaseUrl}/`) ? source.slice(normalizedBaseUrl.length) : source;
+  return relativeSource.startsWith("/api/v1/resources/") ? relativeSource : null;
+};
+
 const resolveUrl = (source: string, baseUrl: string) => {
   if (!source.startsWith("/")) {
     return source;
   }
   return `${baseUrl.replace(/\/+$/, "")}${source}`;
 };
+
+const createProtectedImageExtension = (baseUrl: string, loadResource: (source: string) => Promise<string | null>) => Image.extend({
+  addNodeView() {
+    return ({ node }) => {
+      const image = document.createElement("img");
+      const imageType = node.type;
+      let requestId = 0;
+
+      const clearRequest = () => {
+        requestId += 1;
+      };
+
+      const renderNode = (attributes: Record<string, unknown>) => {
+        clearRequest();
+        const source = String(attributes.src ?? "");
+        const alt = String(attributes.alt ?? "");
+        const title = String(attributes.title ?? "");
+        image.alt = alt;
+        if (title) {
+          image.title = title;
+        } else {
+          image.removeAttribute("title");
+        }
+
+        const protectedSource = normalizeProtectedResourceSource(source, baseUrl);
+        if (!protectedSource) {
+          image.src = resolveUrl(source, baseUrl);
+          return;
+        }
+
+        image.removeAttribute("src");
+        const activeRequestId = requestId;
+        void loadResource(protectedSource)
+          .then((dataUrl) => {
+            if (activeRequestId === requestId) {
+              image.src = dataUrl ?? resolveUrl(source, baseUrl);
+            }
+          })
+          .catch(() => {
+            if (activeRequestId === requestId) {
+              image.src = resolveUrl(source, baseUrl);
+            }
+          });
+      };
+
+      renderNode(node.attrs);
+
+      return {
+        dom: image,
+        update: (updatedNode) => {
+          if (updatedNode.type !== imageType) {
+            return false;
+          }
+          renderNode(updatedNode.attrs);
+          return true;
+        },
+        destroy: clearRequest,
+      };
+    };
+  },
+}).configure({
+  allowBase64: false,
+  inline: false,
+});
 
 const getEditorStyles = (theme: "light" | "dark") => `
   :root { color-scheme: ${theme}; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
