@@ -73,7 +73,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { createExcerpt, docToText, markdownToDoc, type ApiToken, type MemoDetail, type MemoRevision, type MemoSummary, type Notebook, type ResourceListItem, type TagSummary } from "@edgeever/shared";
+import { createExcerpt, docToText, getNotebookDescendantIds, markdownToDoc, type ApiToken, type MemoDetail, type MemoRevision, type MemoSummary, type Notebook, type ResourceListItem, type TagSummary } from "@edgeever/shared";
 import { clearMobileMemoDraft, readMobileMemoDraft, writeMobileMemoDraft } from "../lib/mobile-drafts";
 import {
   readMobileImageCompressionEnabled,
@@ -368,16 +368,20 @@ export const WorkspaceScreen = () => {
 
   const notebooks = notebooksQuery.data?.notebooks ?? [];
   const activeNotebook = notebooks.find((notebook) => notebook.id === activeNotebookId) ?? null;
+  const activeNotebookDescendantIds = useMemo(
+    () => (activeNotebookId === ALL_NOTES_ID ? [] : getNotebookDescendantIds(notebooks, activeNotebookId)),
+    [activeNotebookId, notebooks]
+  );
 
   const memosQuery = useQuery({
-    queryKey: ["mobile", "memos", memoView, activeNotebookId, memoFilterMode, memoSortMode],
+    queryKey: ["mobile", "memos", memoView, activeNotebookId, memoFilterMode, memoSortMode, activeNotebookDescendantIds],
     queryFn: async () => {
       if (!client) {
         throw new Error("Client is not ready");
       }
 
       return listLocalMemos(dataScope, {
-        notebookId: activeNotebookId === ALL_NOTES_ID ? null : activeNotebookId,
+        notebookIds: activeNotebookDescendantIds,
         filter: memoFilterMode,
         limit: 50,
         sort: memoSortMode,
@@ -5840,11 +5844,12 @@ const memoMatchesListQuery = (memo: MemoSummary, queryKey: readonly unknown[]) =
   const view = queryKey[2];
   const notebookId = queryKey[3];
   const filter = queryKey[4];
+  const notebookIds = Array.isArray(queryKey[6]) ? queryKey[6] : [];
 
   if ((view === "trash") !== memo.isDeleted) {
     return false;
   }
-  if (notebookId !== ALL_NOTES_ID && notebookId !== memo.notebookId) {
+  if (notebookId !== ALL_NOTES_ID && !notebookIds.includes(memo.notebookId)) {
     return false;
   }
   if (filter === "tagged" && memo.tags.length === 0) {

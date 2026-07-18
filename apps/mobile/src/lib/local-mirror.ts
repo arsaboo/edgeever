@@ -16,6 +16,7 @@ type IdMappingRow = { remote_id: string };
 
 export type LocalMemoListParams = {
   notebookId?: string | null;
+  notebookIds?: string[];
   q?: string;
   trash?: boolean;
   sort?: MemoSortMode;
@@ -54,7 +55,10 @@ export const listLocalMemos = async (scope: string, params: LocalMemoListParams)
   const conditions = ["scope = ?", "is_deleted = ?"];
   const binds: (string | number)[] = [scope, params.trash ? 1 : 0];
 
-  if (params.notebookId) {
+  if (params.notebookIds?.length) {
+    conditions.push(`notebook_id IN (${params.notebookIds.map(() => "?").join(", ")})`);
+    binds.push(...params.notebookIds);
+  } else if (params.notebookId) {
     conditions.push("notebook_id = ?");
     binds.push(params.notebookId);
   }

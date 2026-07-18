@@ -1046,6 +1046,7 @@ app.get("/api/v1/memos", async (c) => {
   }
 
   const notebookId = c.req.query("notebookId");
+  const includeNotebookDescendants = c.req.query("includeDescendants") === "1";
   const q = c.req.query("q")?.trim();
   const includeTrash = c.req.query("trash") === "1";
   const sort = normalizeMemoListSort(c.req.query("sort"));
@@ -1058,8 +1059,29 @@ app.get("/api/v1/memos", async (c) => {
   const baseBinds: unknown[] = [getWorkspaceId(c)];
 
   if (notebookId) {
-    baseConditions.push("m.notebook_id = ?");
-    baseBinds.push(notebookId);
+    if (includeNotebookDescendants) {
+      baseConditions.push(
+        `m.notebook_id IN (
+           WITH RECURSIVE descendants(id) AS (
+             SELECT id
+             FROM notebooks
+             WHERE workspace_id = ? AND id = ? AND is_deleted = 0
+
+             UNION
+
+             SELECT n.id
+             FROM notebooks n
+             INNER JOIN descendants d ON n.parent_id = d.id
+             WHERE n.workspace_id = ? AND n.is_deleted = 0
+           )
+           SELECT id FROM descendants
+         )`
+      );
+      baseBinds.push(getWorkspaceId(c), notebookId, getWorkspaceId(c));
+    } else {
+      baseConditions.push("m.notebook_id = ?");
+      baseBinds.push(notebookId);
+    }
   }
 
   if (filter === "tagged") {

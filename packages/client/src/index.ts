@@ -254,6 +254,7 @@ export const createEdgeEverClient = (options: EdgeEverClientOptions = {}) => {
 
     listMemos: (params: {
       notebookId?: string | null;
+      includeDescendants?: boolean;
       q?: string;
       trash?: boolean;
       sort?: MemoSortMode;
@@ -265,6 +266,10 @@ export const createEdgeEverClient = (options: EdgeEverClientOptions = {}) => {
 
       if (params.notebookId) {
         search.set("notebookId", params.notebookId);
+      }
+
+      if (params.includeDescendants) {
+        search.set("includeDescendants", "1");
       }
 
       if (params.q?.trim()) {
