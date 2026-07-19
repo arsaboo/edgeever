@@ -69,3 +69,5 @@ export const UserRound = createIcon("user");
 export const Users = createIcon("users");
 export const Video = createIcon("video");
 export const X = createIcon("x");
+export const ZoomIn = createIcon("zoom-in");
+export const ZoomOut = createIcon("zoom-out");

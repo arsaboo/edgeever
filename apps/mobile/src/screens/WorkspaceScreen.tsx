@@ -48,6 +48,8 @@ import {
   Users,
   Video,
   X,
+  ZoomIn,
+  ZoomOut,
 } from "../components/icons";
 import {
   ActivityIndicator,
@@ -69,6 +71,8 @@ import {
   Vibration,
   View,
 } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Alert, Pressable, Text, TextInput } from "../components/LocalizedText";
 import Markdown, { type RenderRules } from "react-native-markdown-display";
@@ -3318,8 +3322,9 @@ const ResourcesModal = ({
           onClose={() => setPreviewResource(null)}
           onNext={() => handlePreviewStep(1)}
           onPrevious={() => handlePreviewStep(-1)}
+          onSelect={setPreviewResource}
           resource={previewResource}
-          resourceCount={imageResources.length}
+          resources={imageResources}
           resourceIndex={previewIndex}
         />
       </SafeAreaView>
@@ -3400,58 +3405,204 @@ const ImagePreviewModal = ({
   onClose,
   onNext,
   onPrevious,
+  onSelect,
   resource,
-  resourceCount,
+  resources,
   resourceIndex,
 }: {
   onClose: () => void;
   onNext: () => void;
   onPrevious: () => void;
+  onSelect: (resource: ResourceListItem) => void;
   resource: ResourceListItem | null;
-  resourceCount: number;
+  resources: ResourceListItem[];
   resourceIndex: number;
 }) => {
   const { session } = useSession();
-  const { translate } = useMobileLocale();
+  const { resolvedLocale, translate } = useMobileLocale();
+  const previewInsets = useSafeAreaInsets();
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [showThumbnails, setShowThumbnails] = useState(false);
+  const thumbnailListRef = useRef<FlatList<ResourceListItem>>(null);
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const savedTranslateX = useSharedValue(0);
+  const savedTranslateY = useSharedValue(0);
+  const stageWidth = useSharedValue(0);
+  const stageHeight = useSharedValue(0);
+  const resourceCount = resources.length;
+
+  const resetTransform = useCallback(() => {
+    scale.value = 1;
+    savedScale.value = 1;
+    translateX.value = 0;
+    translateY.value = 0;
+    savedTranslateX.value = 0;
+    savedTranslateY.value = 0;
+    setZoomLevel(1);
+  }, [savedScale, savedTranslateX, savedTranslateY, scale, translateX, translateY]);
+
+  useEffect(() => {
+    resetTransform();
+    if (resourceIndex > 0) {
+      thumbnailListRef.current?.scrollToIndex({ animated: true, index: resourceIndex, viewPosition: 0.5 });
+    }
+  }, [resetTransform, resource?.id, resourceIndex]);
+
+  useEffect(() => {
+    if (!resource) {
+      setShowThumbnails(false);
+      return;
+    }
+    const task = InteractionManager.runAfterInteractions(() => setShowThumbnails(true));
+    return () => task.cancel();
+  }, [Boolean(resource)]);
+
+  const applyZoom = useCallback((nextZoom: number) => {
+    const resolvedZoom = Math.max(1, Math.min(3, nextZoom));
+    scale.value = withTiming(resolvedZoom, { duration: 160 });
+    savedScale.value = resolvedZoom;
+    const maxTranslateX = Math.max(0, (resolvedZoom - 1) * stageWidth.value / 2);
+    const maxTranslateY = Math.max(0, (resolvedZoom - 1) * stageHeight.value / 2);
+    const resolvedTranslateX = Math.max(-maxTranslateX, Math.min(maxTranslateX, translateX.value));
+    const resolvedTranslateY = Math.max(-maxTranslateY, Math.min(maxTranslateY, translateY.value));
+    translateX.value = withTiming(resolvedTranslateX, { duration: 160 });
+    translateY.value = withTiming(resolvedTranslateY, { duration: 160 });
+    savedTranslateX.value = resolvedTranslateX;
+    savedTranslateY.value = resolvedTranslateY;
+    setZoomLevel(resolvedZoom);
+  }, [savedScale, savedTranslateX, savedTranslateY, scale, stageHeight, stageWidth, translateX, translateY]);
+
+  const previewGesture = useMemo(() => Gesture.Simultaneous(
+    Gesture.Pinch()
+      .onUpdate((event) => {
+        scale.value = Math.max(1, Math.min(3, savedScale.value * event.scale));
+      })
+      .onEnd(() => {
+        const resolvedZoom = Math.max(1, Math.min(3, scale.value));
+        scale.value = withTiming(resolvedZoom, { duration: 120 });
+        savedScale.value = resolvedZoom;
+        const maxTranslateX = Math.max(0, (resolvedZoom - 1) * stageWidth.value / 2);
+        const maxTranslateY = Math.max(0, (resolvedZoom - 1) * stageHeight.value / 2);
+        const resolvedTranslateX = Math.max(-maxTranslateX, Math.min(maxTranslateX, translateX.value));
+        const resolvedTranslateY = Math.max(-maxTranslateY, Math.min(maxTranslateY, translateY.value));
+        translateX.value = withTiming(resolvedTranslateX, { duration: 120 });
+        translateY.value = withTiming(resolvedTranslateY, { duration: 120 });
+        savedTranslateX.value = resolvedTranslateX;
+        savedTranslateY.value = resolvedTranslateY;
+        runOnJS(setZoomLevel)(resolvedZoom);
+      }),
+    Gesture.Pan()
+      .onUpdate((event) => {
+        if (scale.value > 1) {
+          const maxTranslateX = Math.max(0, (scale.value - 1) * stageWidth.value / 2);
+          const maxTranslateY = Math.max(0, (scale.value - 1) * stageHeight.value / 2);
+          translateX.value = Math.max(-maxTranslateX, Math.min(maxTranslateX, savedTranslateX.value + event.translationX));
+          translateY.value = Math.max(-maxTranslateY, Math.min(maxTranslateY, savedTranslateY.value + event.translationY));
+        }
+      })
+      .onEnd(() => {
+        savedTranslateX.value = translateX.value;
+        savedTranslateY.value = translateY.value;
+      })
+  ), [savedScale, savedTranslateX, savedTranslateY, scale, stageHeight, stageWidth, translateX, translateY]);
+  const previewAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
 
   return <Modal animationType="fade" transparent visible={Boolean(resource)} onRequestClose={onClose}>
     <View style={styles.previewBackdrop}>
-      <View style={styles.previewHeader}>
-        <Text numberOfLines={1} style={styles.previewTitle}>
-          {resource?.filename || "图片预览"}
-        </Text>
-        {resourceCount > 1 && resourceIndex >= 0 ? (
-          <Text style={styles.previewCounter}>
-            {resourceIndex + 1}/{resourceCount}
-          </Text>
-        ) : null}
-        <IconButton accessibilityLabel={translate("关闭")} onPress={onClose}>
-          <X color="#0f172a" size={20} />
-        </IconButton>
+      <View style={[styles.previewToolbar, { top: previewInsets.top + 8 }]}>
+        <Pressable
+          accessibilityLabel={translate("放大")}
+          accessibilityRole="button"
+          disabled={zoomLevel >= 3}
+          onPress={() => applyZoom(zoomLevel + 0.5)}
+          style={[styles.previewToolbarButton, zoomLevel >= 3 && styles.previewToolbarButtonDisabled]}
+        >
+          <ZoomIn color="#ffffff" size={24} />
+        </Pressable>
+        <Pressable
+          accessibilityLabel={translate("缩小")}
+          accessibilityRole="button"
+          disabled={zoomLevel <= 1}
+          onPress={() => applyZoom(zoomLevel - 0.5)}
+          style={[styles.previewToolbarButton, zoomLevel <= 1 && styles.previewToolbarButtonDisabled]}
+        >
+          <ZoomOut color="#ffffff" size={24} />
+        </Pressable>
+        <Pressable accessibilityLabel={translate("关闭")} accessibilityRole="button" onPress={onClose} style={styles.previewToolbarButton}>
+          <X color="#ffffff" size={27} />
+        </Pressable>
       </View>
-      {resource ? (
-        <AuthenticatedResourceImage
-          alt={resource.filename || "图片预览"}
-          resizeMode="contain"
-          source={getAuthenticatedResourceSource(resource.url, session)}
-          style={styles.previewImage}
-        />
-      ) : null}
+
+      <View
+        onLayout={(event) => {
+          stageWidth.value = event.nativeEvent.layout.width;
+          stageHeight.value = event.nativeEvent.layout.height;
+        }}
+        style={[styles.previewStage, { bottom: Math.max(136, previewInsets.bottom + 108) }]}
+      >
+        {resource ? (
+          <GestureDetector gesture={previewGesture}>
+            <Animated.View style={[styles.previewImageFrame, previewAnimatedStyle]}>
+              <AuthenticatedResourceImage
+                alt={resource.filename || "图片预览"}
+                resizeMode="contain"
+                source={getAuthenticatedResourceSource(resource.url, session)}
+                style={styles.previewImage}
+              />
+            </Animated.View>
+          </GestureDetector>
+        ) : null}
+      </View>
       {resourceCount > 1 ? (
         <View style={styles.previewNavRow}>
           <Pressable accessibilityLabel={translate("上一张")} accessibilityRole="button" onPress={onPrevious} style={styles.previewNavButton}>
-            <ChevronLeft color="#ffffff" size={26} />
+            <ChevronLeft color="#ffffff" size={28} style={styles.previewNavIcon} />
           </Pressable>
           <Pressable accessibilityLabel={translate("下一张")} accessibilityRole="button" onPress={onNext} style={styles.previewNavButton}>
-            <ChevronRight color="#ffffff" size={26} />
+            <ChevronRight color="#ffffff" size={28} style={styles.previewNavIcon} />
           </Pressable>
         </View>
       ) : null}
-      {resource ? (
-        <Pressable accessibilityLabel={translate("打开原文件")} accessibilityRole="button" onPress={() => openResource(resource)} style={styles.previewOpenButton}>
-          <ExternalLink color="#ffffff" size={18} />
-          <Text style={styles.previewOpenText}>打开原文件</Text>
-        </Pressable>
+      {showThumbnails && resourceCount > 0 ? (
+        <View style={[styles.previewThumbnailRail, { bottom: previewInsets.bottom + 8 }]}>
+          <FlatList
+            contentContainerStyle={styles.previewThumbnailList}
+            data={resources}
+            getItemLayout={(_data, index) => ({ index, length: 108, offset: 108 * index })}
+            horizontal
+            initialNumToRender={5}
+            keyExtractor={(item) => item.id}
+            maxToRenderPerBatch={6}
+            onScrollToIndexFailed={({ index }) => thumbnailListRef.current?.scrollToOffset({ animated: true, offset: Math.max(0, index * 108) })}
+            ref={thumbnailListRef}
+            renderItem={({ index, item }) => (
+              <Pressable
+                accessibilityLabel={resolvedLocale === "en-US" ? `${index + 1} of ${resourceCount}` : `${index + 1}/${resourceCount}`}
+                accessibilityRole="button"
+                onPress={() => onSelect(item)}
+                style={[styles.previewThumbnail, item.id === resource?.id && styles.previewThumbnailActive]}
+              >
+                <AuthenticatedResourceImage
+                  alt={item.filename || "图片预览"}
+                  resizeMode="contain"
+                  source={getAuthenticatedResourceSource(item.url, session)}
+                  style={styles.previewThumbnailImage}
+                />
+              </Pressable>
+            )}
+            showsHorizontalScrollIndicator={false}
+            windowSize={5}
+          />
+        </View>
       ) : null}
     </View>
   </Modal>;
@@ -3649,6 +3800,52 @@ const getAuthenticatedResourceSource = (
   };
 };
 
+type CachedSvgResource = {
+  aspectRatio: number | null;
+  xml: string;
+};
+
+const AUTHENTICATED_SVG_CACHE_LIMIT = 24;
+const authenticatedSvgCache = new Map<string, Promise<CachedSvgResource | null>>();
+const getAuthenticatedSvgCacheKey = (source: ReturnType<typeof getAuthenticatedResourceSource>) =>
+  `${source.uri}\n${source.headers?.Authorization ?? ""}`;
+const loadAuthenticatedSvg = (source: ReturnType<typeof getAuthenticatedResourceSource>) => {
+  const cacheKey = getAuthenticatedSvgCacheKey(source);
+  const cached = authenticatedSvgCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  if (authenticatedSvgCache.size >= AUTHENTICATED_SVG_CACHE_LIMIT) {
+    const oldestKey = authenticatedSvgCache.keys().next().value;
+    if (oldestKey) {
+      authenticatedSvgCache.delete(oldestKey);
+    }
+  }
+  const pending = fetch(source.uri, { headers: source.headers })
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`Resource request failed with ${response.status}`);
+      }
+      if (!response.headers.get("Content-Type")?.toLowerCase().includes("svg")) {
+        return null;
+      }
+      const xml = await response.text();
+      const viewBox = xml.match(/viewBox=["']\s*[\d.-]+\s+[\d.-]+\s+([\d.]+)\s+([\d.]+)\s*["']/i);
+      const width = Number(viewBox?.[1]);
+      const height = Number(viewBox?.[2]);
+      return {
+        aspectRatio: width > 0 && height > 0 ? width / height : null,
+        xml,
+      };
+    })
+    .catch(() => {
+      authenticatedSvgCache.delete(cacheKey);
+      return null;
+    });
+  authenticatedSvgCache.set(cacheKey, pending);
+  return pending;
+};
+
 const AuthenticatedResourceImage = ({
   alt,
   fitAspect = false,
@@ -3665,38 +3862,50 @@ const AuthenticatedResourceImage = ({
   const [aspectRatio, setAspectRatio] = useState(16 / 9);
   const [svgXml, setSvgXml] = useState<string | null>(null);
   const svgRequestStartedRef = useRef(false);
+  const svgSourceKeyRef = useRef("");
+  const svgSourceKey = getAuthenticatedSvgCacheKey(source);
   const imageStyle = fitAspect ? [style, { aspectRatio, height: undefined, width: "100%" as const }] : style;
 
   useEffect(() => {
     setSvgXml(null);
+    setAspectRatio(16 / 9);
     svgRequestStartedRef.current = false;
-  }, [source.uri]);
+    svgSourceKeyRef.current = svgSourceKey;
+    const cached = authenticatedSvgCache.get(svgSourceKey);
+    if (cached) {
+      svgRequestStartedRef.current = true;
+      void cached.then((result) => {
+        if (!result || svgSourceKeyRef.current !== svgSourceKey) {
+          return;
+        }
+        if (result.aspectRatio) {
+          setAspectRatio(result.aspectRatio);
+        }
+        setSvgXml(result.xml);
+      });
+    }
+    return () => {
+      if (svgSourceKeyRef.current === svgSourceKey) {
+        svgSourceKeyRef.current = "";
+      }
+    };
+  }, [svgSourceKey]);
 
   const loadSvgFallback = () => {
     if (svgRequestStartedRef.current) {
       return;
     }
     svgRequestStartedRef.current = true;
-    void fetch(source.uri, { headers: source.headers })
-      .then(async (response) => {
-        if (!response.ok || !response.headers.get("Content-Type")?.toLowerCase().includes("svg")) {
-          return null;
-        }
-        return response.text();
-      })
-      .then((xml) => {
-        if (!xml) {
+    void loadAuthenticatedSvg(source)
+      .then((result) => {
+        if (!result || svgSourceKeyRef.current !== svgSourceKey) {
           return;
         }
-        const viewBox = xml.match(/viewBox=["']\s*[\d.-]+\s+[\d.-]+\s+([\d.]+)\s+([\d.]+)\s*["']/i);
-        const width = Number(viewBox?.[1]);
-        const height = Number(viewBox?.[2]);
-        if (width > 0 && height > 0) {
-          setAspectRatio(width / height);
+        if (result.aspectRatio) {
+          setAspectRatio(result.aspectRatio);
         }
-        setSvgXml(xml);
-      })
-      .catch(() => undefined);
+        setSvgXml(result.xml);
+      });
   };
 
   if (svgXml) {
@@ -7791,73 +8000,92 @@ const baseWorkspaceStyles = StyleSheet.create({
   },
   previewBackdrop: {
     alignItems: "center",
-    backgroundColor: "rgba(15, 23, 42, 0.92)",
+    backgroundColor: "#000000",
     flex: 1,
     justifyContent: "center",
-    padding: 16,
   },
-  previewHeader: {
+  previewToolbar: {
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 8,
     flexDirection: "row",
-    gap: 12,
-    left: 16,
-    padding: 10,
+    gap: 8,
     position: "absolute",
-    right: 16,
-    top: 54,
-    zIndex: 2,
+    right: 12,
+    top: 44,
+    zIndex: 4,
   },
-  previewTitle: {
-    color: "#0f172a",
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "800",
+  previewToolbarButton: {
+    alignItems: "center",
+    height: 44,
+    justifyContent: "center",
+    width: 44,
   },
-  previewCounter: {
-    color: "#475569",
-    fontSize: 12,
-    fontWeight: "800",
+  previewToolbarButtonDisabled: {
+    opacity: 0.34,
+  },
+  previewStage: {
+    alignItems: "center",
+    bottom: 136,
+    justifyContent: "center",
+    left: 0,
+    overflow: "hidden",
+    position: "absolute",
+    right: 0,
+    top: 98,
+  },
+  previewImageFrame: {
+    height: "100%",
+    width: "100%",
   },
   previewImage: {
-    height: "72%",
+    height: "100%",
     width: "100%",
   },
   previewNavRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    left: 16,
+    left: 8,
     position: "absolute",
-    right: 16,
+    right: 8,
+    zIndex: 3,
   },
   previewNavButton: {
     alignItems: "center",
-    backgroundColor: "rgba(15, 23, 42, 0.68)",
-    borderColor: "rgba(255, 255, 255, 0.24)",
-    borderRadius: 24,
-    borderWidth: 1,
-    height: 48,
+    backgroundColor: "transparent",
+    height: 44,
     justifyContent: "center",
-    width: 48,
+    width: 44,
   },
-  previewOpenButton: {
-    alignItems: "center",
-    backgroundColor: "#0f172a",
-    borderColor: "rgba(255, 255, 255, 0.22)",
-    borderRadius: 8,
-    borderWidth: 1,
-    bottom: 42,
-    flexDirection: "row",
-    gap: 8,
-    minHeight: 46,
-    paddingHorizontal: 16,
+  previewNavIcon: {
+    textShadowColor: "rgba(0, 0, 0, 0.88)",
+    textShadowOffset: { height: 1, width: 0 },
+    textShadowRadius: 3,
+  },
+  previewThumbnailRail: {
+    bottom: 18,
+    left: 0,
     position: "absolute",
+    right: 0,
+    zIndex: 4,
   },
-  previewOpenText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "800",
+  previewThumbnailList: {
+    gap: 12,
+  },
+  previewThumbnail: {
+    borderColor: "rgba(255, 255, 255, 0.48)",
+    borderRadius: 3,
+    borderWidth: 1,
+    height: 84,
+    overflow: "hidden",
+    width: 96,
+  },
+  previewThumbnailActive: {
+    borderColor: "#ffffff",
+    borderWidth: 2,
+  },
+  previewThumbnailImage: {
+    backgroundColor: "#020617",
+    height: "100%",
+    width: "100%",
   },
 });
 

@@ -53,6 +53,8 @@ const mobileOnlyTranslations = new Map<string, string>([
   ["系统没有可用应用打开此链接。", "No installed app can open this link."],
   ["已删除笔记不能上传附件，请先恢复笔记", "Deleted notes cannot receive attachments. Restore the note first."],
   ["图片预览", "Image preview"],
+  ["放大", "Zoom in"],
+  ["缩小", "Zoom out"],
   ["上一张", "Previous image"],
   ["下一张", "Next image"],
   ["打开原文件", "Open original file"],
