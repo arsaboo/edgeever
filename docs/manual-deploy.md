@@ -2,7 +2,7 @@
 
 If you are comfortable with Cloudflare and the command line, or prefer customized control over first installation and resource setup, follow this guide for manual deployment. Cloudflare Workers Builds handles routine updates; local deployment is only for first installation and emergency recovery.
 
-> 💡 **Tip**: If you are deploying using an AI assistant (such as Claude Code, Codex, Antigravity, Cursor, or Trae), the agent should follow the [AI Agent Cloudflare Deployment](https://github.com/tianma-if/edgeever/blob/main/docs/agent-deploy-cloudflare.md) runbook.
+> 💡 **Tip**: If you are deploying using an AI assistant (such as Claude Code, Codex, Antigravity, or Cursor), the agent should follow the [AI Agent Cloudflare Deployment](https://github.com/tianma-if/edgeever/blob/main/docs/agent-deploy-cloudflare.md) runbook.
 
 ## Deployment Steps
 

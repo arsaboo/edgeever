@@ -52,7 +52,7 @@ The public demo resets every Monday at 1:00 AM (China Standard Time) and restore
 
 ### Deploy with an AI Agent
  
-Copy this prompt into your AI coding assistant, such as Claude Code, Codex, OpenClaw, Antigravity, Cursor, or Trae. It covers the first installation and the automatic-update setup:
+Copy this prompt into your AI coding assistant, such as Claude Code, Codex, OpenClaw, Antigravity, or Cursor. It covers the first installation and the automatic-update setup:
 
 > 💡 **Note:** Under the hood, AI Agent deployment uses the exact same deterministic CLI commands (Wrangler and Bun scripts) as the manual flow. The AI agent simply executes these standard commands in the terminal on your behalf for convenience; it is not a non-deterministic, black-box deployment.
 
