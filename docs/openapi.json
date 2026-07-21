@@ -113,6 +113,54 @@
             "$ref": "#/components/responses/Error"
           }
         }
+      },
+      "delete": {
+        "summary": "Revoke all login sessions except the current session",
+        "responses": {
+          "200": {
+            "description": "Other sessions revoked",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/sessions/{sessionId}": {
+      "delete": {
+        "summary": "Revoke one of the current user's other login sessions",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session revoked",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
       }
     },
     "/api/v1/auth/login": {

@@ -528,6 +528,58 @@ app.get("/api/v1/auth/sessions", async (c) => {
   });
 });
 
+app.delete("/api/v1/auth/sessions", async (c) => {
+  const auth = await authenticateRequest(c, true);
+
+  if (!auth || auth.kind !== "user" || !auth.actorId || !auth.sessionId) {
+    return unauthorized(c, "An interactive user session is required.");
+  }
+
+  const now = isoNow();
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `UPDATE sessions
+       SET revoked_at = ?
+       WHERE user_id = ? AND id != ? AND revoked_at IS NULL AND expires_at > ?`
+    ).bind(now, auth.actorId, auth.sessionId, now),
+    auditStatement(c.env.DB, "user", auth.actorId, "auth.sessions_revoke_others", "session", auth.sessionId, {}),
+  ]);
+
+  return c.json({ ok: true });
+});
+
+app.delete("/api/v1/auth/sessions/:sessionId", async (c) => {
+  const auth = await authenticateRequest(c, true);
+
+  if (!auth || auth.kind !== "user" || !auth.actorId || !auth.sessionId) {
+    return unauthorized(c, "An interactive user session is required.");
+  }
+
+  const sessionId = c.req.param("sessionId");
+  if (sessionId === auth.sessionId) {
+    return apiError(c, "current_session_cannot_be_revoked", "The current session cannot be revoked here.", 400);
+  }
+
+  const now = isoNow();
+  const session = await c.env.DB.prepare(
+    `SELECT id FROM sessions
+     WHERE id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?`
+  )
+    .bind(sessionId, auth.actorId, now)
+    .first<{ id: string }>();
+
+  if (!session) {
+    return notFound(c, "Login session not found.");
+  }
+
+  await c.env.DB.batch([
+    c.env.DB.prepare(`UPDATE sessions SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL`).bind(now, session.id),
+    auditStatement(c.env.DB, "user", auth.actorId, "auth.session_revoke", "session", session.id, {}),
+  ]);
+
+  return c.json({ ok: true });
+});
+
 app.post("/api/v1/auth/login", zValidator("json", LoginSchema), async (c) => {
   const authMode = await getInstanceAuthMode(c.env);
   if (authMode === "unconfigured") {

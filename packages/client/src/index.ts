@@ -175,6 +175,12 @@ export const createEdgeEverClient = (options: EdgeEverClientOptions = {}) => {
     listLoginDeviceSessions: () =>
       request<ListLoginDeviceSessionsResponse>("/api/v1/auth/sessions"),
 
+    revokeLoginDeviceSession: (sessionId: string) =>
+      request<{ ok: true }>(`/api/v1/auth/sessions/${sessionId}`, { method: "DELETE" }),
+
+    revokeOtherLoginDeviceSessions: () =>
+      request<{ ok: true }>("/api/v1/auth/sessions", { method: "DELETE" }),
+
     login: (payload: { username: string; password: string }) =>
       request<AuthSession>("/api/v1/auth/login", {
         method: "POST",
