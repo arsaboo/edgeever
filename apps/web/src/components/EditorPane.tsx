@@ -998,6 +998,7 @@ export const EditorPane = (props: EditorPaneProps) => {
   );
   const [mobileNativeEditMemoId, setMobileNativeEditMemoId] = useState<string | null>(null);
   const standaloneOpenMemoIdRef = useRef<string | null>(null);
+  const { t } = useTranslation();
   const readOnly = props.isTrashView || Boolean(props.memo?.isDeleted);
   const mobileDefaultEditRequested = Boolean(
     props.memo?.id && props.memo.id === props.mobileDefaultEditMemoId && !readOnly
