@@ -63,6 +63,11 @@ import {
   resolveDemoPasswordHash,
   shouldUpsertDemoSeedRecord,
 } from "./demo-mode";
+import {
+  groupLoginDeviceSessions,
+  resolveSessionDeviceId,
+  type LoginDeviceSessionRow,
+} from "./auth-session-devices";
 
 type Bindings = {
   DB: D1Database;
@@ -399,6 +404,53 @@ const DEMO_SEED_MEMOS = [
     markdown:
       "## 图片笔记示例\n\n笔记正文可以直接插入图片。上传后的图片会进入 R2，正文里保存的是资源 URL，API、MCP 和前端编辑器都能读取。\n\n![EdgeEver 图片资源示例](/api/v1/resources/res_demo_gallery_image/blob)\n\n**图注：** 一张图片和它的说明、结论放在同一条笔记里，回看时就不必猜测截图来自哪里。\n\n这类笔记适合保存截图、设计稿、读书摘图和临时资料。",
   },
+  {
+    id: "memo_demo_table",
+    notebookId: "nb_demo_features",
+    title: "表格编辑：功能对比",
+    tags: ["table", "editor", "demo"],
+    isPinned: true,
+    markdown:
+      "## 表格编辑：功能对比\n\n这张表适合在 Web 或移动端直接编辑。可以点击单元格修改内容，也可以继续添加行列。\n\n| 能力 | Web | 移动端 | 适合场景 |\n| --- | --- | --- | --- |\n| 创建表格 | 支持 | 支持 | 会议记录 |\n| 编辑单元格 | 支持 | 支持 | 计划跟踪 |\n| 横向滚动 | 支持 | 支持 | 对比资料 |\n\n试着把「会议记录」改成一个真实项目，体验表格在桌面和手机上的一致性。",
+  },
+  {
+    id: "memo_demo_character_count",
+    notebookId: "nb_demo_features",
+    title: "字符数统计：一段产品摘要",
+    tags: ["editor", "character-count", "demo"],
+    isPinned: false,
+    markdown:
+      "## 字符数统计：一段产品摘要\n\nEdgeEver 是一个开放、轻量、支持 AI Agent 的个人知识库。它用三栏工作流承载快速记录、集中整理和长期沉淀，让笔记既适合日常捕捉，也方便通过 API 和 MCP 继续加工。\n\n这条笔记故意保留一段完整文字。打开编辑器后，观察底部字符数随着输入、删除和粘贴实时变化。",
+  },
+  {
+    id: "memo_demo_focus_mode",
+    notebookId: "nb_demo_features",
+    title: "桌面专注模式：产品发布提纲",
+    tags: ["focus-mode", "desktop", "demo"],
+    isPinned: false,
+    markdown:
+      "## 桌面专注模式：产品发布提纲\n\n这是一条适合长文编辑的示例。桌面端点击编辑器右上角的专注模式后，笔记会展开到更宽的工作区，减少笔记本树和列表的干扰。\n\n### 发布信息\n\n- 一句话定位：把零散材料变成可持续维护的知识库\n- 核心演示：快速记录、表格整理、Mermaid 流程和版本恢复\n- 现场操作：进入专注模式，补充一段发布说明，再退出回到三栏布局\n\n专注模式适合写方案、会议纪要、读书笔记和较长的项目总结。",
+  },
+  {
+    id: "memo_demo_revision",
+    notebookId: "nb_demo_features",
+    title: "版本历史：会议决策记录",
+    tags: ["revision", "history", "demo"],
+    isPinned: true,
+    revision: 2,
+    markdown:
+      "## 版本历史：会议决策记录\n\n这条笔记预置了历史版本。打开「版本历史」后，可以查看旧版本、对比差异，并恢复选中的版本；恢复操作还会生成新的版本记录。\n\n### 当前结论\n\n- 首版先支持 Web 和移动端的表格编辑\n- Mermaid 示例覆盖流程、时序、状态和甘特图\n- 发布前用专注模式完成长文校对\n\n请先查看版本 1 的草稿，再回到当前版本，体验历史内容与最新结论之间的差异。",
+  },
+];
+const DEMO_SEED_REVISIONS = [
+  {
+    id: "rev_demo_revision_1",
+    memoId: "memo_demo_revision",
+    revision: 1,
+    title: "版本历史：会议决策记录",
+    markdown:
+      "## 会议决策记录\n\n- 先完成编辑器和表格能力\n- 再补充 Mermaid 图表\n- 最后统一整理发布说明\n\n这是会议初稿，后续版本补充了验证结果。",
+  },
 ];
 const DEMO_SEED_RESOURCES = [
   {
@@ -535,32 +587,19 @@ app.get("/api/v1/auth/sessions", async (c) => {
 
   const now = isoNow();
   const rows = await c.env.DB.prepare(
-    `SELECT id, user_agent, expires_at, created_at, last_seen_at
+    `SELECT id, device_id, user_agent, expires_at, created_at, last_seen_at
      FROM sessions
      WHERE user_id = ?
        AND revoked_at IS NULL
        AND expires_at > ?
      ORDER BY COALESCE(last_seen_at, created_at) DESC
-     LIMIT 50`
+     LIMIT 200`
   )
     .bind(auth.actorId, now)
-    .all<{
-      id: string;
-      user_agent: string | null;
-      expires_at: string;
-      created_at: string;
-      last_seen_at: string | null;
-    }>();
+    .all<LoginDeviceSessionRow>();
 
   return c.json({
-    sessions: rows.results.map((session) => ({
-      id: session.id,
-      userAgent: session.user_agent,
-      isCurrent: session.id === auth.sessionId,
-      createdAt: session.created_at,
-      lastSeenAt: session.last_seen_at ?? session.created_at,
-      expiresAt: session.expires_at,
-    })),
+    sessions: groupLoginDeviceSessions(rows.results, auth.sessionId).slice(0, 50),
   });
 });
 
@@ -598,18 +637,31 @@ app.delete("/api/v1/auth/sessions/:sessionId", async (c) => {
 
   const now = isoNow();
   const session = await c.env.DB.prepare(
-    `SELECT id FROM sessions
+    `SELECT id, device_id FROM sessions
      WHERE id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?`
   )
     .bind(sessionId, auth.actorId, now)
-    .first<{ id: string }>();
+    .first<{ id: string; device_id: string | null }>();
 
   if (!session) {
     return notFound(c, "Login session not found.");
   }
 
+  const currentSession = await c.env.DB.prepare(`SELECT device_id FROM sessions WHERE id = ? AND user_id = ?`)
+    .bind(auth.sessionId, auth.actorId)
+    .first<{ device_id: string | null }>();
+
+  if (session.device_id && currentSession?.device_id === session.device_id) {
+    return apiError(c, "current_session_cannot_be_revoked", "The current device cannot be revoked here.", 400);
+  }
+
   await c.env.DB.batch([
-    c.env.DB.prepare(`UPDATE sessions SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL`).bind(now, session.id),
+    session.device_id
+      ? c.env.DB.prepare(
+          `UPDATE sessions SET revoked_at = ?
+           WHERE user_id = ? AND device_id = ? AND revoked_at IS NULL`
+        ).bind(now, auth.actorId, session.device_id)
+      : c.env.DB.prepare(`UPDATE sessions SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL`).bind(now, session.id),
     auditStatement(c.env.DB, "user", auth.actorId, "auth.session_revoke", "session", session.id, {}),
   ]);
 
@@ -630,7 +682,7 @@ app.post("/api/v1/auth/login", zValidator("json", LoginSchema), async (c) => {
   }
 
   const workspace = await ensureUserWorkspace(c.env.DB, user.id, user.username);
-  const session = await createSession(c, user);
+  const session = await createSession(c, user, input.deviceId);
   setSessionCookie(c, session.token, session.maxAge);
 
   await c.env.DB.batch([
@@ -3792,31 +3844,28 @@ const createDefaultNotebookRows = (workspaceId: string, _now: string) => [
   { id: `${workspaceId}_personal`, name: "生活个人", slug: "personal-life", color: "#ea580c", sortOrder: 50 },
 ];
 
-const createSession = async (c: AppContext, user: UserRow) => {
+const createSession = async (c: AppContext, user: UserRow, requestedDeviceId?: string) => {
   const token = randomToken(SESSION_TOKEN_BYTES);
   const id = createId("sess");
   const now = isoNow();
   const maxAge = getSessionMaxAge(c.env);
   const expiresAt = new Date(Date.now() + maxAge * 1000).toISOString();
+  const userAgent = c.req.header("User-Agent") ?? null;
+  const deviceId = resolveSessionDeviceId(requestedDeviceId, userAgent, id);
   const ip = c.req.header("CF-Connecting-IP");
   const ipHash = ip ? await sha256(ip) : null;
 
-  await c.env.DB.prepare(
-    `INSERT INTO sessions (
-      id, user_id, token_hash, user_agent, ip_hash, expires_at, created_at, last_seen_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  )
-    .bind(
-      id,
-      user.id,
-      await sha256(token),
-      c.req.header("User-Agent") ?? null,
-      ipHash,
-      expiresAt,
-      now,
-      now
-    )
-    .run();
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `UPDATE sessions SET revoked_at = ?
+       WHERE user_id = ? AND device_id = ? AND revoked_at IS NULL`
+    ).bind(now, user.id, deviceId),
+    c.env.DB.prepare(
+      `INSERT INTO sessions (
+        id, user_id, token_hash, device_id, user_agent, ip_hash, expires_at, created_at, last_seen_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(id, user.id, await sha256(token), deviceId, userAgent, ipHash, expiresAt, now, now),
+  ]);
 
   return { id, token, maxAge };
 };
@@ -5443,16 +5492,25 @@ const ensureDemoSeed = async (
         .prepare(
           `INSERT INTO memo_contents (
             memo_id, content_json, content_markdown, content_text, content_hash, revision, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, 0, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(memo_id) DO UPDATE SET
             content_json = excluded.content_json,
             content_markdown = excluded.content_markdown,
             content_text = excluded.content_text,
             content_hash = excluded.content_hash,
-            revision = 0,
+            revision = excluded.revision,
             updated_at = excluded.updated_at`
         )
-        .bind(memo.id, JSON.stringify(contentJson), memo.markdown, contentText, contentHash, now, now),
+        .bind(
+          memo.id,
+          JSON.stringify(contentJson),
+          memo.markdown,
+          contentText,
+          contentHash,
+          "revision" in memo ? memo.revision : 0,
+          now,
+          now,
+        ),
       db.prepare(`DELETE FROM memos_fts WHERE memo_id = ?`).bind(memo.id),
       db
         .prepare(
@@ -5460,6 +5518,38 @@ const ensureDemoSeed = async (
            VALUES (?, ?, ?, ?)`
         )
         .bind(memo.id, memo.title, contentText, memo.tags.join(" "))
+    );
+  }
+
+  for (const revision of DEMO_SEED_REVISIONS) {
+    const contentJson = markdownToDoc(revision.markdown);
+    const contentHash = await sha256(revision.markdown + JSON.stringify(contentJson));
+
+    statements.push(
+      db
+        .prepare(
+          `INSERT INTO memo_revisions (
+            id, memo_id, revision, title, content_json, content_markdown, content_hash,
+            created_by, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'system', ?)
+          ON CONFLICT(id) DO UPDATE SET
+            memo_id = excluded.memo_id,
+            revision = excluded.revision,
+            title = excluded.title,
+            content_json = excluded.content_json,
+            content_markdown = excluded.content_markdown,
+            content_hash = excluded.content_hash`
+        )
+        .bind(
+          revision.id,
+          revision.memoId,
+          revision.revision,
+          revision.title,
+          JSON.stringify(contentJson),
+          revision.markdown,
+          contentHash,
+          now,
+        ),
     );
   }
 
