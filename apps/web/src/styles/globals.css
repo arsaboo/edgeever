@@ -178,6 +178,17 @@ textarea {
   padding: 24px 28px 56px;
 }
 
+.ProseMirror .edgeever-search-match {
+  border-radius: 0.2rem;
+  background-color: rgb(254 240 138 / 0.8);
+  box-shadow: 0 0 0 1px rgb(234 179 8 / 0.25);
+}
+
+.ProseMirror .edgeever-search-match-active {
+  background-color: rgb(251 191 36 / 0.9);
+  box-shadow: 0 0 0 2px rgb(217 119 6 / 0.45);
+}
+
 @media (max-width: 1023px) {
   .ProseMirror {
     padding: 18px 16px max(4rem, env(safe-area-inset-bottom));

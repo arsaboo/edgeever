@@ -1,6 +1,8 @@
 import { useRef, useState, useEffect, useCallback, useMemo, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { NodeViewWrapper, ReactNodeViewRenderer, useEditor, EditorContent, type Editor, type NodeViewProps } from "@tiptap/react";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -87,6 +89,7 @@ const SUPPORTED_PASTE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/g
 const MOBILE_EDITOR_QUERY = "(max-width: 639px)";
 const EDITOR_AUTO_SAVE_DELAY_MS = 1200;
 const MOBILE_DRAFT_PERSIST_DELAY_MS = 800;
+const NOTE_SEARCH_HIGHLIGHT_PLUGIN_KEY = new PluginKey("edgeever-note-search-highlight");
 
 type NoteSearchMatch = {
   from: number;
@@ -177,17 +180,17 @@ const focusMobilePlainTextElement = (element: MobilePlainTextElement | null) => 
   selection?.addRange(range);
 };
 
-const getEditorSearchMatches = (editor: Editor | null, query: string): NoteSearchMatch[] => {
+const getSearchMatchesFromDocument = (doc: Editor["state"]["doc"], query: string): NoteSearchMatch[] => {
   const needle = query.trim().toLocaleLowerCase();
 
-  if (!isEditorReady(editor) || needle.length === 0) {
+  if (needle.length === 0) {
     return [];
   }
 
   const characters: Array<{ char: string; pos: number }> = [];
   let previousTextEnd: number | null = null;
 
-  editor.state.doc.descendants((node, pos) => {
+  doc.descendants((node, pos) => {
     if (!node.isText || !node.text) {
       return;
     }
@@ -219,6 +222,14 @@ const getEditorSearchMatches = (editor: Editor | null, query: string): NoteSearc
   }
 
   return matches;
+};
+
+const getEditorSearchMatches = (editor: Editor | null, query: string): NoteSearchMatch[] => {
+  if (!isEditorReady(editor)) {
+    return [];
+  }
+
+  return getSearchMatchesFromDocument(editor.state.doc, query);
 };
 
 const getImageFilesFromDataTransfer = (dataTransfer: DataTransfer | null) => {
@@ -1138,6 +1149,7 @@ const RichEditorPane = ({
   const memoRef = useRef<MemoDetail | null>(memo);
   const editSessionRef = useRef<MemoEditSession | null>(null);
   const editorRef = useRef<Editor | null>(null);
+  const editorScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileTextAreaRef = useRef<MobilePlainTextElement | null>(null);
   const mobileDraftTimerRef = useRef<number | null>(null);
   const mobileSaveTimerRef = useRef<number | null>(null);
@@ -1412,10 +1424,76 @@ const RichEditorPane = ({
         return;
       }
 
-      editor.commands.setTextSelection({ from: match.from, to: match.to });
+      // `setTextSelection` updates the ProseMirror selection but does not
+      // request the view to scroll to it. This is especially visible while
+      // the search input keeps focus, because the browser cannot scroll the
+      // editor selection for us in that case.
+      editor.chain().setTextSelection({ from: match.from, to: match.to }).scrollIntoView().run();
+
+      window.requestAnimationFrame(() => {
+        const scrollContainer = editorScrollContainerRef.current;
+        const domPosition = editor.view.domAtPos(match.from);
+        const node = domPosition.node.nodeType === Node.TEXT_NODE
+          ? domPosition.node.parentElement
+          : domPosition.node instanceof Element
+            ? domPosition.node
+            : domPosition.node.parentElement;
+
+        if (!scrollContainer || !node) {
+          return;
+        }
+
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const nodeRect = node.getBoundingClientRect();
+        const padding = 24;
+        const isAbove = nodeRect.top < containerRect.top + padding;
+        const isBelow = nodeRect.bottom > containerRect.bottom - padding;
+
+        if (isAbove || isBelow) {
+          const targetTop = scrollContainer.scrollTop + nodeRect.top - containerRect.top
+            - (scrollContainer.clientHeight - nodeRect.height) / 2;
+          scrollContainer.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+        }
+      });
     },
     [editor, noteSearchMatches]
   );
+
+  useEffect(() => {
+    if (!isEditorReady(editor)) {
+      return;
+    }
+
+    const searchHighlightPlugin = new Plugin({
+      key: NOTE_SEARCH_HIGHLIGHT_PLUGIN_KEY,
+      props: {
+        decorations: (state) => {
+          const currentMatches = noteSearchOpen ? getSearchMatchesFromDocument(state.doc, noteSearchQuery) : [];
+
+          if (currentMatches.length === 0) {
+            return DecorationSet.empty;
+          }
+
+          return DecorationSet.create(
+            state.doc,
+            currentMatches.map((match, index) =>
+              Decoration.inline(match.from, match.to, {
+                class: index === noteSearchIndex ? "edgeever-search-match edgeever-search-match-active" : "edgeever-search-match",
+              })
+            )
+          );
+        },
+      },
+    });
+
+    editor.registerPlugin(searchHighlightPlugin);
+
+    return () => {
+      if (isEditorReady(editor)) {
+        editor.unregisterPlugin(NOTE_SEARCH_HIGHLIGHT_PLUGIN_KEY);
+      }
+    };
+  }, [editor, noteSearchIndex, noteSearchMatches, noteSearchOpen]);
 
   const focusNoteSearchInput = useCallback(() => {
     window.requestAnimationFrame(() => {
@@ -2703,6 +2781,7 @@ const RichEditorPane = ({
       </header>
 
       <div
+        ref={editorScrollContainerRef}
         className={cn(
           "edgeever-editor relative min-h-0 flex-1 bg-white",
           useMobilePlainTextEditor ? "overflow-visible" : "overflow-y-auto"
