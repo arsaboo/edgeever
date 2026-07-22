@@ -2633,7 +2633,7 @@ const worker = {
       return;
     }
 
-    ctx.waitUntil(resetDemoData(env, controller.scheduledTime));
+    ctx.waitUntil(resetDemoData(env, controller.scheduledTime, { resetCredentials: true }));
   },
 };
 
@@ -5543,7 +5543,11 @@ const ensureDemoSeed = async (
   }
 };
 
-const resetDemoData = async (env: Bindings, scheduledTime: number) => {
+const resetDemoData = async (
+  env: Bindings,
+  scheduledTime: number,
+  options: { resetCredentials?: boolean } = {}
+) => {
   const db = env.DB;
   const now = isoNow();
   const demoUsername = env.EDGE_EVER_AUTH_USERNAME?.trim() || "admin";
@@ -5552,8 +5556,6 @@ const resetDemoData = async (env: Bindings, scheduledTime: number) => {
     env.EDGE_EVER_AUTH_PASSWORD_HASH,
     hashPassword,
   );
-  const memoPlaceholders = DEMO_SEED_MEMO_IDS.map(() => "?").join(", ");
-  const notebookPlaceholders = DEMO_SEED_NOTEBOOK_IDS.map(() => "?").join(", ");
   const resourceRows = await db.prepare(`SELECT object_key FROM resources`).all<{ object_key: string }>();
   const objectKeys = resourceRows.results.map((resource) => resource.object_key);
 
@@ -5574,7 +5576,7 @@ const resetDemoData = async (env: Bindings, scheduledTime: number) => {
     db.prepare(`DELETE FROM audit_events`),
   ];
 
-  if (demoPasswordHash) {
+  if (options.resetCredentials && demoPasswordHash) {
     resetStatements.push(
       db.prepare(`UPDATE users SET password_hash = ?, updated_at = ? WHERE username = ? AND is_disabled = 0`)
         .bind(demoPasswordHash, now, demoUsername),
