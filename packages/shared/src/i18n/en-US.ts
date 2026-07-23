@@ -194,6 +194,7 @@ export const enUS = {
     title: "System info",
     description: "View the current app version, build identifier, and runtime environment.",
     version: "Version",
+    releaseTime: "Release time",
     build: "Build",
     browser: "Browser",
     os: "System",

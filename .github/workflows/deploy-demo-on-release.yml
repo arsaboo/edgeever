@@ -50,6 +50,16 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Resolve Release metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_PUBLISHED_AT: ${{ github.event.release.published_at || '' }}
+        run: |
+          if [ -z "${RELEASE_PUBLISHED_AT}" ]; then
+            RELEASE_PUBLISHED_AT="$(gh api repos/tianma-if/edgeever/releases/latest --jq '.published_at')"
+          fi
+          echo "EDGE_EVER_RELEASED_AT=${RELEASE_PUBLISHED_AT}" >> "${GITHUB_ENV}"
+
       - name: Deploy Demo Worker
         run: bun run deploy
 

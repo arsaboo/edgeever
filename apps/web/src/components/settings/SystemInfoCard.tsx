@@ -65,6 +65,12 @@ export const getWebSystemInfoItems = (
 
   return [
     { label: t("systemInfo.version"), value: `v${__EDGEEVER_APP_VERSION__}` },
+    {
+      label: t("systemInfo.releaseTime"),
+      value: __EDGEEVER_RELEASED_AT__
+        ? new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short" }).format(new Date(__EDGEEVER_RELEASED_AT__))
+        : t("systemInfo.unknown"),
+    },
     { label: t("systemInfo.build"), value: __EDGEEVER_BUILD_LABEL__ },
     {
       label: t("systemInfo.browser"),

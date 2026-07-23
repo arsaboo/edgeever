@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
-import { resolveAppVersion } from "./build-metadata";
+import { resolveAppVersion, resolveReleaseTimestamp } from "./build-metadata";
 
 const readPackageVersion = () => {
   try {
@@ -39,7 +39,9 @@ const buildId = process.env.WORKERS_CI_COMMIT_SHA?.slice(0, 12)
   ?? process.env.GITHUB_SHA?.slice(0, 12)
   ?? readGitCommit()
   ?? "local";
-const appVersion = resolveAppVersion(readPackageVersion(), readGitDescription());
+const gitDescription = readGitDescription();
+const appVersion = resolveAppVersion(readPackageVersion(), gitDescription);
+const releaseTimestamp = resolveReleaseTimestamp(process.env.EDGE_EVER_RELEASED_AT);
 
 export default defineConfig({
   root: "apps/web",
@@ -47,6 +49,7 @@ export default defineConfig({
     __EDGEEVER_APP_VERSION__: JSON.stringify(appVersion),
     __EDGEEVER_BUILD_ID__: JSON.stringify(buildId),
     __EDGEEVER_BUILD_LABEL__: JSON.stringify(buildId === "local" ? "local" : buildId.slice(0, 7)),
+    __EDGEEVER_RELEASED_AT__: JSON.stringify(releaseTimestamp),
   },
   plugins: [
     react(),
