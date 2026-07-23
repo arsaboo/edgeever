@@ -537,7 +537,7 @@ export const enUS = {
     typeInput: "Type",
     clipboardReadFailed: "Could not read the clipboard. Check that your browser allows clipboard access.",
     characterCount: "{{count}} chars",
-    copyToWeChat: "Copy to WeChat",
+    copyToWeChat: "Copy rich text",
     copyingToWeChat: "Preparing WeChat content",
     copiedToWeChat: "Copied",
     copyToWeChatFailed: "Copy failed",
