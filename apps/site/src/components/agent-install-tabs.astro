@@ -75,20 +75,13 @@ const copy = isEnglish
   <div class="mt-8 overflow-hidden rounded-[28px] bg-slate-100 px-6 py-8 sm:px-10 md:px-14">
     <div class="agent-install-panel hidden" data-tab-panel="one-click">
       <p class="mx-auto max-w-3xl text-center text-lg leading-9 text-slate-600">{copy.oneClickIntro}</p>
-      <div class="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+      <div class="mt-8 flex justify-center">
         <a
-          class="inline-flex items-center gap-2 rounded-xl bg-[#24292f] px-7 py-3 text-base font-semibold text-white shadow-[0_14px_30px_-18px_rgba(36,41,47,0.35)] transition hover:-translate-y-0.5 hover:bg-[#161b22]"
-          href="https://github.com/tianma-if/edgeever/fork"
-          target="_blank"
-          rel="noopener">
-          <Icon class="h-5 w-5" name="simple-icons:github" />
-          {copy.forkButton}
-        </a>
-        <a
-          class="text-sm font-semibold text-brand-text underline decoration-brand-border underline-offset-4 hover:text-brand"
+          class="inline-flex items-center gap-2 rounded-full bg-brand px-8 py-3 text-base font-semibold text-white shadow-[0_14px_30px_-18px_rgb(var(--edgeever-brand-rgb)/0.85)] transition hover:-translate-y-0.5 hover:bg-brand-hover"
           href={copy.oneClickGuideHref}
           target="_blank"
           rel="noopener">
+          <Icon class="h-5 w-5" name="bx:bx-book-open" />
           {copy.oneClickGuide}
         </a>
       </div>
