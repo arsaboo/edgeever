@@ -18,7 +18,7 @@
 ### 步骤 1：Fork 仓库并开启 Actions
 
 1. 访问 EdgeEver 官方仓库：`https://github.com/tianma-if/edgeever`。
-2. 点击右上角 **Fork** 按钮，将仓库复制到您的个人 GitHub 账户下。
+2. 点击右上角 **Fork** 按钮，将仓库 Fork 到您的个人 GitHub 账户下。
 3. 进入您 Fork 后的仓库，切换到 **Actions** 标签页，点击 **"I understand my workflows, go ahead and enable them"** 启用自动化工作流。
 
 ---

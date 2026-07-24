@@ -77,7 +77,7 @@ Deploy EdgeEver online:
 
 Complete setup in 4 simple web steps:
 
-1. **Fork the Repository**: Click **Fork** at the top right of GitHub to copy EdgeEver to your personal account.
+1. **Fork the Repository**: Click **Fork** at the top right of GitHub to fork EdgeEver into your personal account.
 2. **Import into Cloudflare**: Log into the Cloudflare Dashboard, navigate to **Workers & Pages**, and choose to import your Fork repository.
 3. **Bind Resources & Password**: Bind the D1 database (`DB`), R2 bucket (`RESOURCES`), and set the Worker Secret `EDGE_EVER_AUTH_PASSWORD` as your admin password.
 4. **Build & Verify**: Start the first build with default settings. Once complete, visit `/api/health` to verify a `200` response before logging in.

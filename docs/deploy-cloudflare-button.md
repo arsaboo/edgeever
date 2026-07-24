@@ -18,7 +18,7 @@ This document provides a detailed step-by-step guide for deploying EdgeEver onli
 ### Step 1: Fork the Repository & Enable Actions
 
 1. Visit the official EdgeEver repository: `https://github.com/tianma-if/edgeever`.
-2. Click the **Fork** button at the top right to copy the repository to your GitHub account.
+2. Click the **Fork** button at the top right to fork the repository into your GitHub account.
 3. Go to your Forked repository, navigate to the **Actions** tab, and click **"I understand my workflows, go ahead and enable them"** to activate automated workflows.
 
 ---
