@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback, useMemo, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useRef, useState, useEffect, useCallback, useMemo, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { NodeViewWrapper, ReactNodeViewRenderer, useEditor, EditorContent, type Editor, type NodeViewProps } from "@tiptap/react";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
@@ -1121,7 +1121,7 @@ const RichEditorPane = ({
   onRequestMobileNativeEdit,
 }: RichEditorPaneProps) => {
   const { t } = useTranslation();
-  const { editorTheme } = useTheme();
+  const { customEditorTheme, editorTheme } = useTheme();
   const queryClient = useQueryClient();
   const isSelectionMode = Boolean(selectionActionBar);
   const [title, setTitle] = useState("");
@@ -2880,6 +2880,14 @@ const RichEditorPane = ({
       <div
         ref={editorScrollContainerRef}
         data-editor-theme={editorTheme}
+        style={editorTheme === "custom" ? {
+          "--editor-theme-bg": customEditorTheme.background,
+          "--editor-theme-text": customEditorTheme.text,
+          "--editor-theme-heading": customEditorTheme.heading,
+          "--editor-theme-accent": customEditorTheme.accent,
+          "--editor-theme-soft": customEditorTheme.soft,
+          "--editor-theme-border": customEditorTheme.border,
+        } as CSSProperties : undefined}
         className={cn(
           "edgeever-editor relative min-h-0 flex-1 bg-white",
           useMobilePlainTextEditor ? "overflow-visible" : "overflow-y-auto"
