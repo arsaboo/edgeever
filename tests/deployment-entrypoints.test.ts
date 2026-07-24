@@ -14,7 +14,7 @@ describe("Cloudflare deployment entrypoints", () => {
     expect(scripts.deploy).toContain("EDGE_EVER_USE_EXISTING_AUTH_SECRET=true");
     expect(scripts.deploy).toContain("deploy:ci");
     expect(scripts["deploy:manual"]).toBe(
-      "bun run deploy:doctor && bun run build:cloudflare && bun run deploy:ci",
+      "export EDGE_EVER_DEPLOYMENT_TRIGGER=manual EDGE_EVER_DEPLOYMENT_METHOD=local_cli && bun run deploy:doctor && bun run build:cloudflare && bun run deploy:ci",
     );
     expect(scripts["deploy:ci"]).toBe(
       "bun run db:migrate:remote && bun run deploy:worker && bun run deploy:verify",
@@ -41,5 +41,8 @@ describe("Cloudflare deployment entrypoints", () => {
     expect(workflow).toContain("bun run db:migrate:local");
     expect(workflow).toContain("bun test");
     expect(workflow).toContain("git push origin HEAD:main");
+    expect(workflow).toContain("source repo import");
+    expect(workflow).toContain("--allow-unrelated-histories");
+    expect(workflow).toContain("non_workflow_changes");
   });
 });

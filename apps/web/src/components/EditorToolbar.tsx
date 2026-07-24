@@ -10,6 +10,8 @@ import {
   Code2,
   List,
   ListOrdered,
+  ListIndentDecrease,
+  ListIndentIncrease,
   Quote,
   SquareCode,
   Workflow,
@@ -346,6 +348,20 @@ export const EditorToolbar = ({
             onClick={() => run((current) => current.chain().focus().toggleOrderedList().run())}
           >
             <ListOrdered className="h-4 w-4" />
+          </EditorToolbarButton>
+          <EditorToolbarButton
+            title={t("editorToolbar.increaseListIndent")}
+            disabled={!canRun((current) => current.can().chain().focus().sinkListItem("listItem").run())}
+            onClick={() => run((current) => current.chain().focus().sinkListItem("listItem").run())}
+          >
+            <ListIndentIncrease className="h-4 w-4" />
+          </EditorToolbarButton>
+          <EditorToolbarButton
+            title={t("editorToolbar.decreaseListIndent")}
+            disabled={!canRun((current) => current.can().chain().focus().liftListItem("listItem").run())}
+            onClick={() => run((current) => current.chain().focus().liftListItem("listItem").run())}
+          >
+            <ListIndentDecrease className="h-4 w-4" />
           </EditorToolbarButton>
           <EditorToolbarButton
             title={t("editorToolbar.quote")}

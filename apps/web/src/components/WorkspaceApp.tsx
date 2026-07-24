@@ -2596,7 +2596,6 @@ export const WorkspaceApp = ({
                     authRequired={authRequired}
                     demoMode={demoMode}
                     isOwner={authRequired && user?.role === "owner"}
-                    onShowGuide={() => setRightView("evernote-migration")}
                   />
                 ) : rightView === "assets" ? (
                   <AssetsPane onClose={handleCloseAssets} activeMemo={selectedMemo} />

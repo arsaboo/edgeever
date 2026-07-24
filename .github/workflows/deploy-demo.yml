@@ -1,4 +1,4 @@
-name: Deploy Demo on Release
+name: Deploy Demo
 
 on:
   release:
@@ -39,7 +39,7 @@ jobs:
       EDGE_EVER_DEPLOYMENT_METHOD: "github_actions"
 
     steps:
-      - name: Checkout release
+      - name: Checkout Demo source
         uses: actions/checkout@v5
         with:
           ref: ${{ github.event.release.tag_name || github.ref }}
