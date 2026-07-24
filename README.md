@@ -71,7 +71,7 @@ Detailed requirements: [AI Agent Cloudflare Deployment](docs/agent-deploy-cloudf
 
 ### Option B: Deploy online from a Fork
 
-[Fork EdgeEver on GitHub](https://github.com/tianma-if/edgeever/fork), then follow the [online deployment guide](docs/deploy-cloudflare-button.md).
+Complete deployment in 4 steps: [Fork EdgeEver on GitHub](https://github.com/tianma-if/edgeever/fork), import it into Cloudflare Workers & Pages, configure the required resources, then run and verify the first build. See the [online deployment guide](docs/deploy-cloudflare-button.md) for details.
 
 ## Multi-Account Login
 
