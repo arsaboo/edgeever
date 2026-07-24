@@ -44,3 +44,5 @@ EDGE_EVER_BUILDS_API_TOKEN=<token>
 配置完成后，任何推送到 `main` 的提交都会让 Cloudflare 安装依赖、检查并构建应用、执行新的 D1 migration、部署 Worker 并验证结果。官方 Demo Worker 在发布正式 Release 时，会通过 GitHub 的 `Deploy Demo on Release` 工作流从 Release 标签立即部署；该工作流只在官方上游仓库执行。其他自托管部署仓库可以使用 **Update deployed EdgeEver** 工作流每天检查上游：默认 `stable` 跟随正式 Release，设置 Repository Variable `EDGE_EVER_UPDATE_CHANNEL=edge` 后跟随上游 `main`。GitHub Actions 不需要保存 Cloudflare 部署 Secret，也不需要本地重新部署。
 
 构建失败时，在 Worker 的 **Deployments** 页面查看日志。实例配置变化后，重新执行 `bun run deploy:builds:setup`。
+
+一键部署生成的仓库最初只有一个合成的 `source repo import` 提交。第一次上游更新会识别这种结构，并自动建立上游 Git 历史。对于更新工作流加入之前创建的仓库，请从上游仓库添加当前的 `.github/workflows/sync-edgeever-upstream.yml`，提交到 `main`，然后手动运行一次。若仓库已经提交过自定义应用代码，必须先审查差异，不要直接使用该初始化路径。

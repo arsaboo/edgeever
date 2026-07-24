@@ -41,5 +41,8 @@ describe("Cloudflare deployment entrypoints", () => {
     expect(workflow).toContain("bun run db:migrate:local");
     expect(workflow).toContain("bun test");
     expect(workflow).toContain("git push origin HEAD:main");
+    expect(workflow).toContain("source repo import");
+    expect(workflow).toContain("--allow-unrelated-histories");
+    expect(workflow).toContain("non_workflow_changes");
   });
 });
